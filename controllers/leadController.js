@@ -19,35 +19,55 @@ const MOCK_USER_FOR_TESTING = {
 };
 
 
-exports.getAllLeads = async (req, res) => {
-    
-        const user = req.user || MOCK_USER_FOR_TESTING;
-    
+// src/controllers/leadController.js
 
-    const { role, region, zone, id: userId } = user;
+// ... (imports and helper functions remain the same)
+
+/**
+ * 1. GET /api/leads - Fetch all leads based on user role (Access Control)
+ */
+exports.getAllLeads = async (req, res) => {
+    // ** 🔄 CRITICAL CHANGE HERE: Read user data from query parameters (req.query) 🔄 **
+    // The frontend sends this data via URL query params, e.g., /api/leads?userId=...&role=...
+    const { userId, role, region, zone } = req.query;
+
+    // Fallback/Mock for local testing (optional, but good for quick testing)
+    const user = { 
+        id: userId || MOCK_USER_FOR_TESTING.id, 
+        role: role || MOCK_USER_FOR_TESTING.role, 
+        region: region || MOCK_USER_FOR_TESTING.region, 
+        zone: zone || MOCK_USER_FOR_TESTING.zone 
+    };
+
+    // If a request comes without basic user info (which shouldn't happen with the frontend change)
+    if (!user.role || (user.role === 'FO' && !user.id)) {
+        return res.status(403).json({ message: 'Access Denied: Missing user identification for filtering.' });
+    }
+
+    // Use the values extracted from the query parameters
     let filter = {};
 
     // Build the query filter based on the user's role
-    if (role === 'CEO') {
+    if (user.role === 'CEO') {
         filter = {}; // CEO sees all leads
-    } else if (role === 'ZonalHead') {
-        filter = { zone: zone };
-    } else if (role === 'RegionalHead') {
-        filter = { region: region };
-    } else if (role === 'FO') {
+    } else if (user.role === 'ZonalHead') {
+        filter = { zone: user.zone };
+    } else if (user.role === 'RegionalHead') {
+        filter = { region: user.region };
+    } else if (user.role === 'FO') {
         // Ensure userId exists before creating ObjectId
-        if (!userId) {
+        if (!user.id) {
             return res.status(500).json({ message: 'Error: FO role requires a valid ID.' });
         }
-        // NOTE: This assumes the 'id' field in MOCK_USER_FOR_TESTING is a valid ObjectId string
-        filter = { assignedFOId: new mongoose.Types.ObjectId(userId) }; 
+        // NOTE: userId comes from the query string
+        filter = { assignedFOId: new mongoose.Types.ObjectId(user.id) }; 
     } else {
         return res.status(403).json({ message: 'Access Denied: Role not authorized to view leads.' });
     }
 
     try {
         const leads = await Lead.find(filter)
-            .select('leadID fullName leadStatus assignedFO reminderCallDate zone region loanType') // Fields for the list view
+            .select('leadID fullName leadStatus assignedFO reminderCallDate zone region loanType')
             .sort({ reminderCallDate: 1, createdAt: -1 });
 
         res.status(200).json(leads);
@@ -57,9 +77,7 @@ exports.getAllLeads = async (req, res) => {
     }
 };
 
-/**
- * 2. POST /api/leads - Create a new lead (Basic Capture)
- */
+
 exports.createLead = async (req, res) => {
     const { fullName, mobileNumbers, source,zone,region,assignedFOId,assignedFO,assignedFOPhone } = req.body;
 
