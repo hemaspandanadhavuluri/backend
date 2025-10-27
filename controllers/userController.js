@@ -35,7 +35,8 @@ exports.registerUser = async (req, res) => {
         name, personalNumber, email, dateOfBirth, gender, panNumber, aadharNumber,
         currentAddress, permanentAddress, fatherName, fatherDob, fatherMobile,
         motherName, motherDob, motherMobile, zone, region, role,
-        reporting_hr, reporting_fo, reporting_zonalHead, reporting_regionalHead, reporting_ceo
+        reporting_hr, reporting_fo, reporting_zonalHead, reporting_regionalHead, reporting_ceo,
+        joiningDate, joiningTime, joiningLocation
     } = req.body;
 
     // Files from multer
@@ -58,6 +59,14 @@ exports.registerUser = async (req, res) => {
         // const salt = await bcrypt.genSalt(10);
         // const hashedPassword = await bcrypt.hash(password, salt);
         const hashedPassword = 'defaultpassword'; // MOCK: Store plain password temporarily
+
+        // Generate employeeId sequentially like JTL001, JTL002, etc.
+        const lastUser = await User.findOne().sort({ createdAt: -1 });
+        let employeeId = 'JTL001';
+        if (lastUser && lastUser.employeeId) {
+            const lastId = parseInt(lastUser.employeeId.substring(3));
+            employeeId = `JTL${String(lastId + 1).padStart(3, '0')}`;
+        }
 
         // 3. Create User
         const user = await User.create({
@@ -88,9 +97,41 @@ exports.registerUser = async (req, res) => {
             reporting_zonalHead,
             reporting_regionalHead,
             reporting_ceo,
+            employeeId,
+            department: zone || region || 'General', // Use zone/region as department
+            position: role,
+            dateOfJoining: new Date(),
         });
 
         if (user) {
+            // Send welcome email to the new user
+            try {
+                const mailOptions = {
+                    from: process.env.EMAIL_USER || 'justtapnagendra@gmail.com',
+                    to: user.email,
+                    subject: 'Welcome to Just Tap Loans',
+                    html: `
+                        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
+                            <h2 style="color: #1976d2; text-align: center;">Welcome to Just Tap Loans!</h2>
+                            <p>Dear ${user.fullName},</p>
+                            <p>Congratulations and welcome to Just Tap Loans!</p>
+                            <p>Please report to our office on ${new Date(joiningDate).toLocaleDateString()} at ${joiningTime} at ${joiningLocation} for the joining formalities.</p>
+                            <p>Kindly bring your original study certificates and government ID proof for verification.</p>
+                            <p>If you have any questions, please contact the HR team.</p>
+                            <p>Best regards,<br>The HR Team</p>
+                            <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
+                            <p style="color: #666; font-size: 12px; text-align: center;">This is an automated message from the HR Portal.</p>
+                        </div>
+                    `
+                };
+
+                await transporter.sendMail(mailOptions);
+                console.log(`✅ Welcome email sent to ${user.email}`);
+            } catch (emailError) {
+                console.error(`❌ Failed to send welcome email to ${user.email}:`, emailError);
+                // Don't fail the registration if email fails
+            }
+
             // Send back necessary user data (excluding password)
             res.status(201).json({
                 _id: user._id,
@@ -246,5 +287,235 @@ exports.verifyOTP = async (req, res) => {
     } catch (error) {
         console.error('Error verifying OTP:', error);
         res.status(500).json({ message: 'Server error verifying OTP.' });
+    }
+};
+
+/**
+ * Send birthday wishes to employees
+ * @route POST /api/users/send-birthday-wishes
+ */
+exports.sendBirthdayWishes = async (req, res) => {
+    try {
+        // Get today's date
+        const today = new Date();
+        const todayMonth = today.getMonth() + 1; // getMonth() returns 0-11
+        const todayDay = today.getDate();
+
+        // Find employees whose birthday is today
+        const employeesWithBirthday = await User.find({
+            dateOfBirth: {
+                $exists: true,
+                $ne: null
+            }
+        }).select('fullName email dateOfBirth');
+
+        const birthdayEmployees = employeesWithBirthday.filter(employee => {
+            const dob = new Date(employee.dateOfBirth);
+            return dob.getMonth() + 1 === todayMonth && dob.getDate() === todayDay;
+        });
+
+        if (birthdayEmployees.length === 0) {
+            return res.status(200).json({ message: 'No employees have birthdays today.' });
+        }
+
+        // Send birthday emails
+        const emailPromises = birthdayEmployees.map(async (employee) => {
+            const subject = `Happy Birthday ${employee.fullName}!`;
+            const html = `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
+                    <h2 style="color: #1976d2; text-align: center;">Happy Birthday!</h2>
+                    <p>Dear ${employee.fullName},</p>
+                    <p>On behalf of the entire team, we wish you a very Happy Birthday!</p>
+                    <p>May this year bring you joy, success, and all the happiness you deserve.</p>
+                    <p>Enjoy your special day!</p>
+                    <p>Best regards,<br>The HR Team</p>
+                    <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
+                    <p style="color: #666; font-size: 12px; text-align: center;">This is an automated birthday wish from the HR Portal.</p>
+                </div>
+            `;
+
+            try {
+                await transporter.sendMail({
+                    from: process.env.EMAIL_USER,
+                    to: employee.email,
+                    subject,
+                    html
+                });
+                console.log(`✅ Birthday email sent to ${employee.email}`);
+                return { email: employee.email, status: 'sent' };
+            } catch (error) {
+                console.error(`❌ Failed to send birthday email to ${employee.email}:`, error);
+                return { email: employee.email, status: 'failed', error: error.message };
+            }
+        });
+
+        const results = await Promise.all(emailPromises);
+
+        const sentCount = results.filter(r => r.status === 'sent').length;
+        const failedCount = results.filter(r => r.status === 'failed').length;
+
+        res.status(200).json({
+            message: `Birthday wishes sent to ${sentCount} employee(s). ${failedCount} failed.`,
+            results
+        });
+    } catch (error) {
+        console.error('Error sending birthday wishes:', error);
+        res.status(500).json({ message: 'Server error sending birthday wishes.' });
+    }
+};
+
+/**
+ * Fetches all active employees for the employee management table.
+ * @route GET /api/users/active
+ */
+exports.getActiveEmployees = async (req, res) => {
+    try {
+        const employees = await User.find({ isActive: true }).select('-password');
+        res.status(200).json(employees);
+    } catch (error) {
+        console.error('Error fetching active employees:', error);
+        res.status(500).json({ message: 'Server error fetching active employees.' });
+    }
+};
+
+/**
+ * Fetches all inactive employees for the employee management table.
+ * @route GET /api/users/inactive
+ */
+exports.getInactiveEmployees = async (req, res) => {
+    try {
+        const employees = await User.find({ isActive: false }).select('-password');
+        res.status(200).json(employees);
+    } catch (error) {
+        console.error('Error fetching inactive employees:', error);
+        res.status(500).json({ message: 'Server error fetching inactive employees.' });
+    }
+};
+
+/**
+ * Updates employee status (for firing or approving resignation).
+ * @route PUT /api/users/:id/status
+ */
+exports.updateEmployeeStatus = async (req, res) => {
+    const { id } = req.params;
+    const { status, reason, resignationLetter } = req.body;
+
+    if (!['resigned', 'fired'].includes(status)) {
+        return res.status(400).json({ message: 'Invalid status. Must be resigned or fired.' });
+    }
+
+    try {
+        const updateData = {
+            status,
+            reason,
+            isActive: false
+        };
+
+        if (resignationLetter) {
+            updateData.resignationLetter = resignationLetter;
+        }
+
+        const employee = await User.findByIdAndUpdate(id, updateData, { new: true });
+
+        if (!employee) {
+            return res.status(404).json({ message: 'Employee not found.' });
+        }
+
+        res.status(200).json({
+            message: `Employee status updated to ${status}.`,
+            employee
+        });
+    } catch (error) {
+        console.error('Error updating employee status:', error);
+        res.status(500).json({ message: 'Server error updating employee status.' });
+    }
+};
+
+/**
+ * Fetches all employees in onboarding or training status for the dashboard.
+ * @route GET /api/users/onboarding
+ */
+exports.getOnboardingCandidates = async (req, res) => {
+    try {
+        const candidates = await User.find({
+            onboardingStatus: { $in: ['onboarding', 'training', 'completed'] }
+        }).populate('trainer', 'fullName').select('-password');
+
+        res.status(200).json(candidates);
+    } catch (error) {
+        console.error('Error fetching onboarding candidates:', error);
+        res.status(500).json({ message: 'Server error fetching onboarding candidates.' });
+    }
+};
+
+/**
+ * Assigns a trainer and timeslot to an employee.
+ * @route PUT /api/users/:id/assign-trainer
+ */
+exports.assignTrainer = async (req, res) => {
+    const { id } = req.params;
+    const { trainerId, timeslot } = req.body;
+
+    if (!trainerId || !timeslot) {
+        return res.status(400).json({ message: 'Trainer ID and timeslot are required.' });
+    }
+
+    try {
+        const employee = await User.findByIdAndUpdate(
+            id,
+            {
+                trainer: trainerId,
+                timeslot,
+                onboardingStatus: 'training',
+                progress: Math.max(5, 0) // Set minimum progress
+            },
+            { new: true }
+        ).populate('trainer', 'fullName');
+
+        if (!employee) {
+            return res.status(404).json({ message: 'Employee not found.' });
+        }
+
+        res.status(200).json({
+            message: 'Trainer assigned and training scheduled.',
+            employee
+        });
+    } catch (error) {
+        console.error('Error assigning trainer:', error);
+        res.status(500).json({ message: 'Server error assigning trainer.' });
+    }
+};
+
+/**
+ * Updates the progress of an employee's onboarding/training.
+ * @route PUT /api/users/:id/update-progress
+ */
+exports.updateProgress = async (req, res) => {
+    const { id } = req.params;
+    const { progress } = req.body;
+
+    if (progress < 0 || progress > 100) {
+        return res.status(400).json({ message: 'Progress must be between 0 and 100.' });
+    }
+
+    try {
+        const updateData = {
+            progress,
+            onboardingStatus: progress >= 100 ? 'completed' : 'training'
+        };
+
+        const employee = await User.findByIdAndUpdate(id, updateData, { new: true }).populate('trainer', 'fullName');
+
+        if (!employee) {
+            return res.status(404).json({ message: 'Employee not found.' });
+        }
+
+        res.status(200).json({
+            message: 'Progress updated successfully.',
+            employee
+        });
+    } catch (error) {
+        console.error('Error updating progress:', error);
+        res.status(500).json({ message: 'Server error updating progress.' });
     }
 };

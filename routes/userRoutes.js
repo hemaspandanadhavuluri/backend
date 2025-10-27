@@ -16,4 +16,17 @@ router.get('/managers', userController.getManagers);
 router.post('/send-otp', userController.sendOTP);
 router.post('/verify-otp', userController.verifyOTP);
 
+// Birthday wishes route
+router.post('/send-birthday-wishes', userController.sendBirthdayWishes);
+
+// Employee management routes
+router.get('/active', userController.getActiveEmployees);
+router.get('/inactive', userController.getInactiveEmployees);
+router.put('/:id/status', userController.updateEmployeeStatus);
+
+// Onboarding and Training routes
+router.get('/onboarding', userController.getOnboardingCandidates);
+router.put('/:id/assign-trainer', userController.assignTrainer);
+router.put('/:id/update-progress', userController.updateProgress);
+
 module.exports = router;

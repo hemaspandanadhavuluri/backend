@@ -24,7 +24,6 @@ const UserSchema = new mongoose.Schema({
     // Role for Access Control
     role: {
         type: String,
-        enum: ['CEO', 'ZonalHead', 'RegionalHead', 'FO', 'HR'],
         required: true
     },
 
@@ -38,6 +37,22 @@ const UserSchema = new mongoose.Schema({
     reporting_zonalHead: { type: String },
     reporting_regionalHead: { type: String },
     reporting_ceo: { type: String },
+
+    // Employee Management Fields
+    employeeId: { type: String, unique: true }, // Auto-generated like JTL001
+    department: { type: String },
+    position: { type: String },
+    dateOfJoining: { type: Date },
+    isActive: { type: Boolean, default: true },
+    status: { type: String, enum: ['active', 'resigned', 'fired'], default: 'active' },
+    reason: { type: String }, // Reason for leaving (resignation or firing)
+    resignationLetter: { type: String }, // File path for resignation letter
+
+    // Onboarding and Training Fields
+    onboardingStatus: { type: String, enum: ['onboarding', 'training', 'completed'], default: 'onboarding' },
+    progress: { type: Number, default: 0 },
+    trainer: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // Reference to trainer user
+    timeslot: { type: String },
 
 }, { timestamps: true });
 
