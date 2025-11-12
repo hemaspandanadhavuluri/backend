@@ -69,6 +69,15 @@ const EmbeddedCallNoteSchema = new mongoose.Schema({
     nextCallDate: { type: Date }, // Optional reminder date set during the call
 }, { timestamps: true }); // Tracks when the note was created
 
+// --- NEW: Bank Assignment Sub-Schema ---
+const BankAssignmentSchema = new mongoose.Schema({
+    bankId: { type: mongoose.Schema.Types.ObjectId, ref: 'Bank', required: true },
+    bankName: { type: String, required: true },
+    assignedRMName: { type: String }, // Name of the assigned Relationship Manager
+    assignedRMEmail: { type: String }, // Email of the assigned RM
+    assignedAt: { type: Date, default: Date.now },
+}, { _id: false });
+
 // --- 3. Main Lead Schema (Updated) ---
 const LeadSchema = new mongoose.Schema({
   // 1. Metadata & Basic Info
@@ -88,7 +97,7 @@ const LeadSchema = new mongoose.Schema({
   regionalHead: { type: String },
   zonalHead: { type: String },
   planningToStudy: { type: String },
-  source: { type: SourceSchema, required: true }, // MADE REQUIRED for initial capture
+  source: { type: SourceSchema }, // MADE REQUIRED for initial capture
   
   // Assignee Information 
   assignedFOId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
@@ -123,22 +132,53 @@ const LeadSchema = new mongoose.Schema({
   otherExpenses: { type: Number },
   maxUnsecuredGivenByUBI: { type: Number },
   hasAssets: { type: Boolean, default: false },
-  availableAssets: { type: String },
   listOfFOsServed: { type: [String], default: [] }, 
+
+  // NEW: Detailed Assets Structure
+  assets: [{
+    assetType: { type: String, enum: ['Physical Property', 'Fixed Deposit', 'LIC Policy', 'Government Bond'] },
+    ownerName: { type: String, default: '' },
+    assetValue: { type: String, default: '' }, // Using String to accommodate different formats
+    // Physical Property Details
+    propertyType: { type: String, enum: ['House', 'Flat', 'Non-agricultural Land', 'Commercial Property'] },
+    pendingLoan: { type: String, default: '' },
+    locationPincode: { type: String, default: '' },
+    documentsAvailable: { type: Boolean, default: false },
+    authority: { type: String, enum: ['Gram Panchayat', 'Municipality', ''] },
+    // Other asset details
+    bankName: { type: String, default: '' }, // For FD
+    policyType: { type: String, enum: ['Term', 'Life', ''] }, // For LIC
+  }],
 
   // 5. Family Info / Co-Applicant (Flattened and Embedded)
   fatherName: { type: String },
   fatherEmploymentType: { type: String },
+  // NEW: Add relations array to store co-applicants/guarantors
+  relations: { type: [CoApplicantSchema], default: [] },
+
   fatherAnnualIncome: { type: Number },
   fatherPhoneNumber: { type: String },
   currentObligations: { type: String },
   cibilScore: { type: String },
   cibilIssues: { type: String },
-  ownHouseGuarantor: { type: Boolean, default: false },
+  ownHouseGuarantor: {
+    name: { type: String, default: '' },
+    phoneNumber: { type: String, default: '' },
+    relationshipType: { type: String, default: '' },
+    employmentType: { type: String, default: '' },
+    annualIncome: { type: String, default: '' },
+    currentObligations: { type: String, default: '' },
+    cibilScore: { type: String, default: '' },
+    hasCibilIssues: { type: Boolean, default: false },
+    cibilIssues: { type: String, default: '' },
+  },
   coApplicant: { type: CoApplicantSchema, default: {} },
 
   // 6. References (Array of Embedded Documents)
-  references: { type: [ReferenceSchema], default: [{ relationship: "Reference" }, { relationship: "Reference 2" }] },
+  references: { type: [ReferenceSchema], default: () => [
+    { relationship: '', name: '', address: '', phoneNumber: '' },
+    { relationship: '', name: '', address: '', phoneNumber: '' }
+  ] },
 
   // 7. Other Info
   panStatus: { type: String, enum: ['Not Interested', 'Not Available', 'Applied', 'Available'], default: 'Not Interested' },
@@ -157,7 +197,14 @@ const LeadSchema = new mongoose.Schema({
   callHistory: {
       type: [EmbeddedCallNoteSchema],
       default: []
-  }
+  },
+  // NEW: External notes from Bank Executives
+  externalCallHistory: {
+      type: [EmbeddedCallNoteSchema],
+      default: []
+  },
+  // NEW: Array to track assignments to banks
+  assignedBanks: { type: [BankAssignmentSchema], default: [] }
 
 }, { timestamps: true }); 
 

@@ -1,6 +1,8 @@
 // src/controllers/userController.js
 const User = require('../models/userModel');
+const Bank = require('../models/bankModel'); // Import the Bank model
 // const bcrypt = require('bcryptjs'); // Needed for real-world password hashing
+const mongoose = require('mongoose');
 const multer = require('multer');
 const path = require('path');
 const nodemailer = require('nodemailer');
@@ -149,16 +151,36 @@ exports.sendOTP = async (req, res) => {
     }
 
     try {
-        // Check if user exists with the provided identifier
-        const user = await User.findOne({
-            $or: [{ email: identifier }, { phoneNumber: identifier }]
-        });
+        let isBankExecutive = false;
+        let userDetailsForOtp;
+        let user;
 
-        if (!user) {
-            return res.status(404).json({ message: 'Employee not found with the provided identifier.' });
+        // 1. Check if the identifier belongs to a Bank Executive
+        const bank = await Bank.findOne({ 'relationshipManagers.email': identifier });
+        if (bank) {
+            const rm = bank.relationshipManagers.find(r => r.email === identifier);
+            if (rm) {
+                isBankExecutive = true;
+                // Create a temporary user-like object for the OTP process
+                userDetailsForOtp = {
+                    _id: new mongoose.Types.ObjectId(), // Temporary ID for the process
+                    fullName: rm.name,
+                    email: rm.email,
+                    role: 'BankExecutive',
+                    bank: bank.name
+                };
+                user = userDetailsForOtp; // Use this object for sending OTP
+            }
+        } else {
+            // 2. If not a bank exec, check for an internal employee
+            user = await User.findOne({
+                $or: [{ email: identifier }, { phoneNumber: identifier }]
+            });
         }
 
-        // Generate a 6-digit OTP
+        if (!user) return res.status(404).json({ message: 'User or Bank Executive not found with the provided identifier.' });
+
+        // 3. Generate and send OTP
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
         // Send OTP via email if identifier is an email
@@ -191,12 +213,16 @@ exports.sendOTP = async (req, res) => {
             console.log(`📱 OTP SMS to ${identifier}: ${otp}`);
         }
 
-        // Store OTP temporarily (in production, use Redis or similar)
-        // For simplicity, we'll store it in memory (not recommended for production)
+        // 4. Store OTP with user details
         global.otpStore = global.otpStore || {};
-        global.otpStore[identifier] = { otp, userId: user._id, expiresAt: Date.now() + 5 * 60 * 1000 }; // 5 minutes
+        global.otpStore[identifier] = { 
+            otp, 
+            userDetails: user, // Store the full user or user-like object
+            isBankExecutive,
+            expiresAt: Date.now() + 5 * 60 * 1000 // 5 minutes
+        };
 
-        res.status(200).json({ message: 'OTP sent successfully.', userId: user._id });
+        res.status(200).json({ message: 'OTP sent successfully.' });
     } catch (error) {
         console.error('Error sending OTP:', error);
         res.status(500).json({ message: 'Server error sending OTP.' });
@@ -221,27 +247,27 @@ exports.verifyOTP = async (req, res) => {
             return res.status(400).json({ message: 'Invalid or expired OTP.' });
         }
 
-        // OTP is valid, fetch user details
-        const user = await User.findById(storedOTP.userId).select('-password');
-
-        if (!user) {
-            return res.status(404).json({ message: 'User not found.' });
-        }
+        // OTP is valid, use the user details stored during OTP sending
+        const userDetails = storedOTP.userDetails;
 
         // Clear the OTP after successful verification
         delete global.otpStore[identifier];
 
+        // Construct the final user object for the frontend
+        const userForFrontend = {
+            _id: userDetails._id,
+            fullName: userDetails.fullName,
+            email: userDetails.email,
+            phoneNumber: userDetails.phoneNumber,
+            role: userDetails.role,
+            zone: userDetails.zone,
+            region: userDetails.region,
+            bank: userDetails.bank
+        };
+
         res.status(200).json({
             message: 'Login successful.',
-            user: {
-                _id: user._id,
-                fullName: user.fullName,
-                email: user.email,
-                phoneNumber: user.phoneNumber,
-                role: user.role,
-                zone: user.zone,
-                region: user.region,
-            }
+            user: userForFrontend
         });
     } catch (error) {
         console.error('Error verifying OTP:', error);

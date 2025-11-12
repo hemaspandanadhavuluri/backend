@@ -6,6 +6,7 @@ const cors = require('cors'); // <--- Imported
 const path = require('path');
 const leadRoutes = require('./routes/leadRoutes');
 const userRoutes = require('./routes/userRoutes');
+const bankRoutes = require('./routes/bankRoutes');
 
 dotenv.config();
 
@@ -39,6 +40,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // API Routes
 app.use('/api/leads', leadRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/banks', bankRoutes);
 
 // Basic health check route
 app.get('/', (req, res) => {

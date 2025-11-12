@@ -9,5 +9,6 @@ router.get('/', leadController.getAllLeads); // GET all leads (with access contr
 router.post('/', leadController.createLead); // POST create new lead (with auth for assignment)
 router.get('/:id', leadController.getLeadById); // GET specific lead
 router.put('/:id', leadController.updateLead); // PUT update lead
+router.post('/:id/assign-bank', leadController.assignToBank); // POST assign lead to a bank
 
 module.exports = router;

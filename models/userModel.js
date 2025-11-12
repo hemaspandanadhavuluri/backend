@@ -24,13 +24,15 @@ const UserSchema = new mongoose.Schema({
     // Role for Access Control
     role: {
         type: String,
-        enum: ['CEO', 'ZonalHead', 'RegionalHead', 'FO', 'HR'],
+        enum: ['CEO', 'ZonalHead', 'RegionalHead', 'FO', 'HR', 'BankExecutive'],
         required: true
     },
 
     // Hierarchy Fields (used for filtering leads)
     zone: { type: String, index: true },
     region: { type: String, index: true },
+    // NEW: Field to associate a user with a bank
+    bank: { type: String, index: true },
 
     // Reporting Hierarchy
     reporting_hr: { type: String },
