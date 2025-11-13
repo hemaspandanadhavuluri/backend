@@ -186,7 +186,7 @@ exports.updateApplication = async (req, res) => {
             if (status === 'Completed') {
                 await sendSelectionEmail(candidate, application);
             } else {
-                await sendStatusUpdateEmail(application, status);
+                await sendStatusUpdateEmail(candidate, application, status);
             }
         }
 
@@ -390,7 +390,7 @@ const sendSelectionEmail = async (candidate, application) => {
 /**
  * Send status update email to candidate
  */
-const sendStatusUpdateEmail = async (application, newStatus) => {
+const sendStatusUpdateEmail = async (candidate, application, newStatus) => {
     const statusMessages = {
         'Shortlisted': 'Congratulations! Your application has been shortlisted.',
         'Interviewed': 'Your interview has been scheduled.',
@@ -398,13 +398,13 @@ const sendStatusUpdateEmail = async (application, newStatus) => {
         'Hired': 'Congratulations! We are pleased to offer you the position.'
     };
 
-    const subject = `Application Status Update - ${application.candidateName}`;
+    const subject = `Application Status Update - ${candidate.position}`;
     const html = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
             <h2 style="color: #1976d2; text-align: center;">Application Status Update</h2>
-            <p>Dear ${application.candidateName},</p>
+            <p>Dear ${candidate.name},</p>
             <p>${statusMessages[newStatus] || 'Your application status has been updated.'}</p>
-            <p>Position: ${application.position || 'N/A'}</p>
+            <p>Position: ${candidate.position || 'N/A'}</p>
             <p>Status: ${newStatus}</p>
             <p>If you have any questions, please contact our HR team.</p>
             <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
@@ -415,11 +415,11 @@ const sendStatusUpdateEmail = async (application, newStatus) => {
     try {
         await transporter.sendMail({
             from: process.env.EMAIL_USER,
-            to: application.email,
+            to: candidate.email,
             subject,
             html
         });
-        console.log(`✅ Status update email sent to ${application.email}`);
+        console.log(`✅ Status update email sent to ${candidate.email}`);
     } catch (error) {
         console.error('Error sending status update email:', error);
     }

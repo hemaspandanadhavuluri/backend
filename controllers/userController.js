@@ -4,6 +4,7 @@ const User = require('../models/userModel');
 const multer = require('multer');
 const path = require('path');
 const nodemailer = require('nodemailer');
+const ResignationRequest = require('../models/resignationRequestModel');
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -36,7 +37,7 @@ exports.registerUser = async (req, res) => {
         currentAddress, permanentAddress, fatherName, fatherDob, fatherMobile,
         motherName, motherDob, motherMobile, zone, region, role,
         reporting_hr, reporting_fo, reporting_zonalHead, reporting_regionalHead, reporting_ceo,
-        joiningDate, joiningTime, joiningLocation
+        joiningDate, joiningTime, joiningLocation, salary
     } = req.body;
 
     // Files from multer
@@ -101,6 +102,7 @@ exports.registerUser = async (req, res) => {
             department: zone || region || 'General', // Use zone/region as department
             position: role,
             dateOfJoining: new Date(),
+            salary: salary ? parseFloat(salary) : 0,
         });
 
         if (user) {
@@ -379,6 +381,73 @@ exports.getActiveEmployees = async (req, res) => {
 };
 
 /**
+ * Update an employee's salary (annual CTC) - sets as pending for approval.
+ * @route PUT /api/users/:id/salary
+ */
+exports.updateSalary = async (req, res) => {
+    const { id } = req.params;
+    const { salary } = req.body;
+
+    if (salary === undefined || isNaN(Number(salary))) {
+        return res.status(400).json({ message: 'Valid salary is required.' });
+    }
+
+    try {
+        const updated = await User.findByIdAndUpdate(id, { pendingSalary: Number(salary) }, { new: true }).select('-password');
+        if (!updated) return res.status(404).json({ message: 'Employee not found.' });
+        res.status(200).json({ message: 'Salary update requested (pending approval).', employee: updated });
+    } catch (error) {
+        console.error('Error updating salary:', error);
+        res.status(500).json({ message: 'Server error updating salary.' });
+    }
+};
+
+/**
+ * Approve pending salary for an employee.
+ * @route PUT /api/users/:id/salary/approve
+ */
+exports.approvePendingSalary = async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const user = await User.findById(id);
+        if (!user) return res.status(404).json({ message: 'Employee not found.' });
+
+        if (user.pendingSalary) {
+            user.salary = user.pendingSalary;
+            user.pendingSalary = 0;
+            await user.save();
+        }
+
+        res.status(200).json({ message: 'Pending salary approved.', employee: user });
+    } catch (error) {
+        console.error('Error approving pending salary:', error);
+        res.status(500).json({ message: 'Server error approving salary.' });
+    }
+};
+
+/**
+ * Decline pending salary for an employee.
+ * @route PUT /api/users/:id/salary/decline
+ */
+exports.declinePendingSalary = async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const user = await User.findById(id);
+        if (!user) return res.status(404).json({ message: 'Employee not found.' });
+
+        user.pendingSalary = 0;
+        await user.save();
+
+        res.status(200).json({ message: 'Pending salary declined.', employee: user });
+    } catch (error) {
+        console.error('Error declining pending salary:', error);
+        res.status(500).json({ message: 'Server error declining salary.' });
+    }
+};
+
+/**
  * Fetches all inactive employees for the employee management table.
  * @route GET /api/users/inactive
  */
@@ -519,3 +588,464 @@ exports.updateProgress = async (req, res) => {
         res.status(500).json({ message: 'Server error updating progress.' });
     }
 };
+
+/**
+ * Employee login with username/password.
+ * @route POST /api/users/employee-login
+ */
+exports.employeeLogin = async (req, res) => {
+    const { username, password } = req.body;
+
+    if (!username || !password) {
+        return res.status(400).json({ message: 'Please provide username and password.' });
+    }
+
+    try {
+        const user = await User.findOne({ username, isActive: true });
+
+        if (!user || user.employeePassword !== password) {
+            return res.status(401).json({ message: 'Invalid credentials.' });
+        }
+
+        res.status(200).json({
+            message: 'Login successful.',
+            user: {
+                _id: user._id,
+                fullName: user.fullName,
+                email: user.email,
+                phoneNumber: user.phoneNumber,
+                role: user.role,
+                employeeId: user.employeeId,
+                department: user.department,
+                position: user.position,
+                leaveBalance: user.leaveBalance,
+                salary: user.salary
+            }
+        });
+    } catch (error) {
+        console.error('Error during employee login:', error);
+        res.status(500).json({ message: 'Server error during login.' });
+    }
+};
+
+/**
+ * Create employee credentials (HR function).
+ * @route POST /api/users/create-employee-credentials
+ */
+exports.createEmployeeCredentials = async (req, res) => {
+    const { employeeId, username, password } = req.body;
+
+    if (!employeeId || !username || !password) {
+        return res.status(400).json({ message: 'Please provide employeeId, username, and password.' });
+    }
+
+    try {
+        const user = await User.findOne({ employeeId });
+
+        if (!user) {
+            return res.status(404).json({ message: 'Employee not found.' });
+        }
+
+        // Check if username is already taken
+        const existingUser = await User.findOne({ username });
+        if (existingUser && existingUser._id.toString() !== user._id.toString()) {
+            return res.status(409).json({ message: 'Username already exists.' });
+        }
+
+        user.username = username;
+        user.employeePassword = password;
+        await user.save();
+
+        // Send email with credentials
+        try {
+            const mailOptions = {
+                from: process.env.EMAIL_USER || 'justtapnagendra@gmail.com',
+                to: user.email,
+                subject: 'Your Employee Portal Credentials',
+                html: `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
+                        <h2 style="color: #1976d2; text-align: center;">Employee Portal Credentials</h2>
+                        <p>Dear ${user.fullName},</p>
+                        <p>Your employee portal credentials have been created. Here are your login details:</p>
+                        <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
+                            <p><strong>Username:</strong> ${username}</p>
+                            <p><strong>Password:</strong> ${password}</p>
+                        </div>
+                        <p>Please log in to the employee portal using these credentials. You can change your password after logging in.</p>
+                        <p>If you have any questions, please contact the HR team.</p>
+                        <p>Best regards,<br>The HR Team</p>
+                        <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
+                        <p style="color: #666; font-size: 12px; text-align: center;">This is an automated message from the HR Portal.</p>
+                    </div>
+                `
+            };
+
+            await transporter.sendMail(mailOptions);
+            console.log(`✅ Credentials email sent to ${user.email}`);
+        } catch (emailError) {
+            console.error(`❌ Failed to send credentials email to ${user.email}:`, emailError);
+            // Don't fail the credential creation if email fails
+        }
+
+        res.status(200).json({ message: 'Employee credentials created successfully. Email sent to employee.' });
+    } catch (error) {
+        console.error('Error creating employee credentials:', error);
+        res.status(500).json({ message: 'Server error creating credentials.' });
+    }
+};
+
+/**
+ * Submit profile edit request from employee.
+ * @route POST /api/users/profile-edit-request
+ */
+exports.submitProfileEditRequest = async (req, res) => {
+    const { employeeId, requestedChanges, reason } = req.body;
+
+    if (!employeeId || !requestedChanges || !reason) {
+        return res.status(400).json({ message: 'Please provide employeeId, requestedChanges, and reason.' });
+    }
+
+    try {
+        const ProfileEditRequest = require('../models/profileEditRequestModel');
+
+        const request = await ProfileEditRequest.create({
+            employeeId,
+            requestedChanges,
+            reason
+        });
+
+        res.status(201).json({
+            message: 'Profile edit request submitted successfully.',
+            request
+        });
+    } catch (error) {
+        console.error('Error submitting profile edit request:', error);
+        res.status(500).json({ message: 'Server error submitting request.' });
+    }
+};
+
+/**
+ * Get profile edit requests for HR approval.
+ * @route GET /api/users/profile-edit-requests
+ */
+exports.getProfileEditRequests = async (req, res) => {
+    try {
+        const ProfileEditRequest = require('../models/profileEditRequestModel');
+
+        const requests = await ProfileEditRequest.find({ status: 'pending' })
+            .populate('employeeId', 'fullName employeeId department')
+            .sort({ createdAt: -1 });
+
+        res.status(200).json(requests);
+    } catch (error) {
+        console.error('Error fetching profile edit requests:', error);
+        res.status(500).json({ message: 'Server error fetching requests.' });
+    }
+};
+
+/**
+ * Approve or reject profile edit request.
+ * @route PUT /api/users/profile-edit-request/:id
+ */
+exports.handleProfileEditRequest = async (req, res) => {
+    const { id } = req.params;
+    const { status, hrComments, approvedBy } = req.body;
+
+    if (!['approved', 'rejected'].includes(status)) {
+        return res.status(400).json({ message: 'Invalid status. Must be approved or rejected.' });
+    }
+
+    try {
+        const ProfileEditRequest = require('../models/profileEditRequestModel');
+
+        const request = await ProfileEditRequest.findById(id).populate('employeeId');
+
+        if (!request) {
+            return res.status(404).json({ message: 'Request not found.' });
+        }
+
+        request.status = status;
+        request.hrComments = hrComments;
+        request.approvedBy = approvedBy;
+        request.approvedAt = new Date();
+
+        // If approved, update the user profile
+        if (status === 'approved') {
+            const user = await User.findById(request.employeeId);
+            if (user) {
+                Object.assign(user, request.requestedChanges);
+                await user.save();
+            }
+        }
+
+        await request.save();
+
+        res.status(200).json({
+            message: `Profile edit request ${status}.`,
+            request
+        });
+    } catch (error) {
+        console.error('Error handling profile edit request:', error);
+        res.status(500).json({ message: 'Server error handling request.' });
+    }
+};
+
+/**
+ * Get profile edit requests for a specific employee.
+ * @route GET /api/users/profile-edit-requests/:employeeId
+ */
+exports.getProfileEditRequestsForEmployee = async (req, res) => {
+    const { employeeId } = req.params;
+
+    try {
+        const ProfileEditRequest = require('../models/profileEditRequestModel');
+
+        const requests = await ProfileEditRequest.find({
+            employeeId,
+            status: 'pending'
+        }).sort({ createdAt: -1 });
+
+        // Transform the data to match frontend expectations
+        const transformedRequests = requests.map(request => ({
+            field: Object.keys(request.requestedChanges)[0], // Assuming one field per request for simplicity
+            currentValue: '', // This would need to be fetched from the user model
+            requestedValue: Object.values(request.requestedChanges)[0],
+            _id: request._id
+        }));
+
+        res.status(200).json(transformedRequests);
+    } catch (error) {
+        console.error('Error fetching profile edit requests for employee:', error);
+        res.status(500).json({ message: 'Server error fetching requests.' });
+    }
+};
+
+/**
+ * Approve all pending profile edit requests for a specific employee.
+ * @route PUT /api/users/profile-edit-requests/:employeeId/approve
+ */
+exports.approveAllProfileEditRequests = async (req, res) => {
+    const { employeeId } = req.params;
+    const { approvedBy } = req.body;
+
+    try {
+        const ProfileEditRequest = require('../models/profileEditRequestModel');
+
+        // Find all pending requests for this employee
+        const pendingRequests = await ProfileEditRequest.find({
+            employeeId,
+            status: 'pending'
+        });
+
+        if (pendingRequests.length === 0) {
+            return res.status(404).json({ message: 'No pending requests found for this employee.' });
+        }
+
+        // Get the user to update
+        const user = await User.findById(employeeId);
+        if (!user) {
+            return res.status(404).json({ message: 'Employee not found.' });
+        }
+
+        // Apply all changes to the user
+        let hasChanges = false;
+        pendingRequests.forEach(request => {
+            Object.assign(user, request.requestedChanges);
+            hasChanges = true;
+        });
+
+        if (hasChanges) {
+            await user.save();
+        }
+
+        // Update all requests to approved
+        await ProfileEditRequest.updateMany(
+            { employeeId, status: 'pending' },
+            {
+                status: 'approved',
+                approvedBy,
+                approvedAt: new Date()
+            }
+        );
+
+        res.status(200).json({
+            message: `${pendingRequests.length} profile edit request(s) approved successfully.`,
+            updatedFields: pendingRequests.length
+        });
+    } catch (error) {
+        console.error('Error approving profile edit requests:', error);
+        res.status(500).json({ message: 'Server error approving requests.' });
+    }
+};
+
+/**
+ * Reject all pending profile edit requests for a specific employee.
+ * @route PUT /api/users/profile-edit-requests/:employeeId/reject
+ */
+exports.rejectAllProfileEditRequests = async (req, res) => {
+    const { employeeId } = req.params;
+    const { rejectedBy, hrComments } = req.body;
+
+    try {
+        const ProfileEditRequest = require('../models/profileEditRequestModel');
+
+        // Find all pending requests for this employee
+        const pendingRequests = await ProfileEditRequest.find({
+            employeeId,
+            status: 'pending'
+        });
+
+        if (pendingRequests.length === 0) {
+            return res.status(404).json({ message: 'No pending requests found for this employee.' });
+        }
+
+        // Update all requests to rejected
+        await ProfileEditRequest.updateMany(
+            { employeeId, status: 'pending' },
+            {
+                status: 'rejected',
+                approvedBy: rejectedBy,
+                hrComments,
+                approvedAt: new Date()
+            }
+        );
+
+        res.status(200).json({
+            message: `${pendingRequests.length} profile edit request(s) rejected successfully.`,
+            rejectedFields: pendingRequests.length
+        });
+    } catch (error) {
+        console.error('Error rejecting profile edit requests:', error);
+        res.status(500).json({ message: 'Server error rejecting requests.' });
+    }
+};
+
+/**
+ * Submit resignation request from employee.
+ * @route POST /api/users/resignation-request
+ */
+exports.submitResignationRequest = async (req, res) => {
+    const { employeeId, reason } = req.body;
+
+    if (!employeeId || !reason) {
+        return res.status(400).json({ message: 'Please provide employeeId and reason.' });
+    }
+
+    try {
+        // Check if employee already has a pending resignation request
+        const existingRequest = await ResignationRequest.findOne({
+            employeeId,
+            status: 'pending'
+        });
+
+        if (existingRequest) {
+            return res.status(409).json({ message: 'You already have a pending resignation request.' });
+        }
+
+        const resignationRequest = await ResignationRequest.create({
+            employeeId,
+            reason,
+            resignationLetterPath: req.file ? req.file.path : null
+        });
+
+        res.status(201).json({
+            message: 'Resignation request submitted successfully.',
+            request: resignationRequest
+        });
+    } catch (error) {
+        console.error('Error submitting resignation request:', error);
+        res.status(500).json({ message: 'Server error submitting resignation request.' });
+    }
+};
+
+/**
+ * Get resignation requests for HR approval.
+ * @route GET /api/users/resignation-requests
+ */
+exports.getResignationRequests = async (req, res) => {
+    try {
+        const requests = await ResignationRequest.find({ status: 'pending' })
+            .populate('employeeId', 'fullName employeeId department email')
+            .sort({ createdAt: -1 });
+
+        res.status(200).json(requests);
+    } catch (error) {
+        console.error('Error fetching resignation requests:', error);
+        res.status(500).json({ message: 'Server error fetching resignation requests.' });
+    }
+};
+
+/**
+ * Get resignation request for a specific employee.
+ * @route GET /api/users/resignation-request/:employeeId
+ */
+exports.getResignationRequestForEmployee = async (req, res) => {
+    const { employeeId } = req.params;
+
+    try {
+        const request = await ResignationRequest.findOne({
+            employeeId,
+            status: 'pending'
+        }).populate('employeeId', 'fullName employeeId department email');
+
+        if (!request) {
+            return res.status(404).json({ message: 'No pending resignation request found.' });
+        }
+
+        res.status(200).json(request);
+    } catch (error) {
+        console.error('Error fetching resignation request:', error);
+        res.status(500).json({ message: 'Server error fetching resignation request.' });
+    }
+};
+
+/**
+ * Approve or reject resignation request.
+ * @route PUT /api/users/resignation-request/:id
+ */
+exports.handleResignationRequest = async (req, res) => {
+    const { id } = req.params;
+    const { status, hrComments, approvedBy } = req.body;
+
+    if (!['approved', 'rejected'].includes(status)) {
+        return res.status(400).json({ message: 'Invalid status. Must be approved or rejected.' });
+    }
+
+    try {
+        const request = await ResignationRequest.findById(id).populate('employeeId');
+
+        if (!request) {
+            return res.status(404).json({ message: 'Resignation request not found.' });
+        }
+
+        request.status = status;
+        request.hrComments = hrComments;
+        request.approvedBy = approvedBy;
+        request.approvedAt = new Date();
+
+        // If approved, update employee status to resigned
+        if (status === 'approved') {
+            const user = await User.findById(request.employeeId);
+            if (user) {
+                user.status = 'resigned';
+                user.isActive = false;
+                user.reason = request.reason;
+                user.resignationLetter = request.resignationLetterPath;
+                await user.save();
+            }
+        }
+
+        await request.save();
+
+        res.status(200).json({
+            message: `Resignation request ${status}.`,
+            request
+        });
+    } catch (error) {
+        console.error('Error handling resignation request:', error);
+        res.status(500).json({ message: 'Server error handling resignation request.' });
+    }
+};
+
+// Export multer middleware for resignation letter upload
+exports.uploadResignationLetter = upload.single('resignationLetter');

@@ -8,7 +8,8 @@ const ApplicationSubSchema = new mongoose.Schema({
   appliedDate: { type: Date, default: Date.now },
   reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   reviewDate: { type: Date },
-  notes: { type: String }
+  notes: { type: String },
+  rejectionReason: { type: String } // Reason for rejection
 }, { timestamps: true });
 
 const CandidateSchema = new mongoose.Schema({

@@ -103,6 +103,9 @@ exports.updateInterview = async (req, res) => {
             return res.status(404).json({ message: 'Interview not found.' });
         }
 
+        const originalDate = interview.date;
+        const originalTime = interview.time;
+
         interview.date = date || interview.date;
         interview.time = time || interview.time;
         interview.interviewer = interviewer || interview.interviewer;
@@ -117,7 +120,26 @@ exports.updateInterview = async (req, res) => {
             interview.completedAt = new Date();
         }
 
+        // If interview status is set to 'Failed', update the candidate's application status to 'Rejected'
+        if (status === 'Failed') {
+            const candidate = await Candidate.findById(interview.application);
+            if (candidate) {
+                const appIndex = candidate.applications.findIndex(app => app._id.toString() === interview.application.toString());
+                if (appIndex !== -1) {
+                    candidate.applications[appIndex].status = 'Rejected';
+                    candidate.applications[appIndex].rejectionReason = feedback || 'Failed interview';
+                    await candidate.save();
+                }
+            }
+        }
+
         await interview.save();
+
+        // Send reschedule email if date or time was changed
+        if ((date && date !== originalDate) || (time && time !== originalTime)) {
+            const candidate = await Candidate.findById(interview.application);
+            await sendRescheduleEmail(interview, candidate);
+        }
 
         // Send advanced stage email if phone interview is completed
         if (status === 'Completed' && interview.type === 'Phone Interview') {
@@ -211,7 +233,7 @@ const sendAdvancedStageEmail = async (interview, application) => {
             <h2 style="color: #1976d2; text-align: center;">Congratulations! You have moved to the Advanced Stage</h2>
             <p>Dear ${interview.candidateName},</p>
             <p>Congratulations! You have successfully completed the Phone Interview for the position of <strong>${interview.position}</strong>.</p>
-            
+
             <p>You have now moved to the advanced stage in the interview process. Our team will schedule the next round of interviews soon.</p>
             <p>Please stay tuned for further updates and get ready for the upcoming rounds.</p>
             <p>If you have any questions, please contact our HR team.</p>
@@ -230,5 +252,42 @@ const sendAdvancedStageEmail = async (interview, application) => {
         console.log(`✅ Advanced stage email sent to ${application.email}`);
     } catch (error) {
         console.error('Error sending advanced stage email:', error);
+    }
+};
+
+/**
+ * Send reschedule email when interview date/time is changed
+ */
+const sendRescheduleEmail = async (interview, application) => {
+    const subject = `Interview Rescheduled - ${interview.position}`;
+    const html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
+            <h2 style="color: #1976d2; text-align: center;">Interview Rescheduled</h2>
+            <p>Dear ${interview.candidateName},</p>
+            <p>We regret to inform you that your interview for the position of <strong>${interview.position}</strong> has been rescheduled.</p>
+            <div style="background: #f5f5f5; padding: 15px; margin: 20px 0; border-radius: 5px;">
+                <p><strong>Updated Interview Details:</strong></p>
+                <p>Date: ${new Date(interview.date).toLocaleDateString()}</p>
+                <p>Time: ${interview.time}</p>
+                <p>Type: ${interview.type}</p>
+                <p>Interviewer: ${interview.interviewer}</p>
+            </div>
+            <p>We apologize for any inconvenience caused. Please confirm your availability for the new schedule.</p>
+            <p>If you have any questions or need to reschedule further, please contact our HR team immediately.</p>
+            <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
+            <p style="color: #666; font-size: 12px; text-align: center;">This is an automated message from the HR Portal.</p>
+        </div>
+    `;
+
+    try {
+        await transporter.sendMail({
+            from: process.env.EMAIL_USER,
+            to: application.email,
+            subject,
+            html
+        });
+        console.log(`✅ Interview reschedule email sent to ${application.email}`);
+    } catch (error) {
+        console.error('Error sending reschedule email:', error);
     }
 };

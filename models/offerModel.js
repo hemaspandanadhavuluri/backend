@@ -5,7 +5,7 @@ const OfferSchema = new mongoose.Schema({
   candidateName: { type: String, required: true },
   email: { type: String },
   position: { type: String, required: true },
-  salary: { type: String, required: true },
+  salary: { type: Number, required: true },
   startDate: { type: Date },
   expiryDate: { type: Date, required: true },
   employmentType: { type: String },

@@ -48,11 +48,22 @@ const UserSchema = new mongoose.Schema({
     reason: { type: String }, // Reason for leaving (resignation or firing)
     resignationLetter: { type: String }, // File path for resignation letter
 
+    // Employee-specific fields for employee panel
+    username: { type: String, unique: true, sparse: true }, // For employee login
+    employeePassword: { type: String }, // Separate password for employee login
+    leaveBalance: { type: Number, default: 24 }, // Annual leave balance
+    salary: { type: Number, default: 0 }, // Annual salary (approved)
+    pendingSalary: { type: Number, default: 0 }, // Pending annual salary approval
+    deductions: { type: Number, default: 0 }, // Current month deductions
+    additions: { type: Number, default: 0 }, // Current month additions
+    monthlyLateMinutes: { type: Number, default: 0 }, // Total late minutes in current month
+
     // Onboarding and Training Fields
     onboardingStatus: { type: String, enum: ['onboarding', 'training', 'completed'], default: 'onboarding' },
     progress: { type: Number, default: 0 },
     trainer: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // Reference to trainer user
     timeslot: { type: String },
+    trainingScore: { type: Number, default: 0 }, // Training score out of 100 when completed
 
 }, { timestamps: true });
 

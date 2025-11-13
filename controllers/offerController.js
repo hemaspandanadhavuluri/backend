@@ -2,6 +2,8 @@ const Offer = require('../models/offerModel');
 const Candidate = require('../models/candidateModel');
 const nodemailer = require('nodemailer');
 const puppeteer = require('puppeteer');
+const path = require('path');
+const os = require('os');
 
 // Configure nodemailer transporter
 const transporter = nodemailer.createTransport({
@@ -88,6 +90,14 @@ exports.createOffer = async (req, res) => {
             await sendOfferEmail(offer, candidate);
         }
 
+        // Update user's salary if user exists by email
+        const User = require('../models/userModel');
+        const user = await User.findOne({ email: offer.email });
+        if (user) {
+            user.salary = parseFloat(offer.salary) || 0;
+            await user.save();
+        }
+
         res.status(201).json(offer);
     } catch (error) {
         console.error('Error creating offer:', error);
@@ -140,6 +150,16 @@ exports.updateOffer = async (req, res) => {
         }
 
         await offer.save();
+
+        // Update user's salary if salary changed and user exists by email
+        if (salary !== undefined) {
+            const User = require('../models/userModel');
+            const user = await User.findOne({ email: offer.email });
+            if (user) {
+                user.salary = parseFloat(offer.salary) || 0;
+                await user.save();
+            }
+        }
 
         // Send status update email
         if (status && status !== originalStatus) {
@@ -207,7 +227,17 @@ exports.getAcceptedOffers = async (req, res) => {
 const generateOfferPDF = async (offer) => {
     const browser = await puppeteer.launch({
         headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-gpu',
+            '--disable-software-rasterizer',
+            '--disable-background-timer-throttling',
+            '--disable-backgrounding-occluded-windows',
+            '--disable-renderer-backgrounding'
+        ],
+        timeout: 60000
     });
     const page = await browser.newPage();
 
@@ -346,6 +376,14 @@ exports.acceptOffer = async (req, res) => {
                 candidate.applications[appIndex].status = 'Hired';
                 await candidate.save();
             }
+        }
+
+        // Set user's salary on offer acceptance
+        const User = require('../models/userModel');
+        const user = await User.findOne({ email: offer.email });
+        if (user) {
+            user.salary = parseFloat(offer.salary) || 0;
+            await user.save();
         }
 
         // Send confirmation email
