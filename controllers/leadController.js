@@ -13,16 +13,11 @@ const generateUniqueLeadID = () => {
 exports.getAllLeads = async (req, res) => {
     // ** 🔄 CRITICAL CHANGE HERE: Read user data from query parameters (req.query) 🔄 **
     // The frontend sends this data via URL query params, e.g., /api/leads?userId=...&role=...
-    const { userId, role, region, zone, bank } = req.query;
+    const { userId, role, region, zone, bank, assigned } = req.query;
 
     // The user object is now constructed directly from the frontend request query.
     // No more mock data fallback.
     const user = { id: userId, role, region, zone, bank };
-
-    // If a request comes without basic user info (which shouldn't happen with the frontend change)
-    if (!user.role || (user.role === 'FO' && !user.id)) {
-        return res.status(403).json({ message: 'Access Denied: Missing user identification for filtering.' });
-    }
 
     // Use the values extracted from the query parameters
     let filter = {};
@@ -43,6 +38,12 @@ exports.getAllLeads = async (req, res) => {
         filter = { assignedFOId: new mongoose.Types.ObjectId(user.id) }; 
     } else if (user.role === 'BankExecutive') {
         filter = { 'assignedBanks.bankName': user.bank };
+    } else if (user.role === 'Assigner' && assigned === 'false') {
+        // Special filter for the Assigner Panel to get unassigned leads
+        filter = { assignedFOId: { $exists: false } };
+    } else if (user.role.toLowerCase() === 'assigner') { // A general case for assigner if needed
+        // Special filter for the Assigner Panel to get unassigned leads
+        filter = { assignedFOId: { $exists: false } };
     } else {
         return res.status(403).json({ message: 'Access Denied: Role not authorized to view leads.' });
     }
@@ -112,6 +113,9 @@ exports.updateLead = async (req, res) => {
     const { id } = req.params;
     const updateData = req.body;
         
+    // --- FIX: Separate atomic operators from direct updates ---
+    const atomicOps = {};
+
     // --- FIX: Preserve the 'source' field if it's not in the update payload ---
     // The `source` field is required by the schema, but may not be sent on every
     // update from the form. This ensures we don't wipe it out.
@@ -125,18 +129,20 @@ exports.updateLead = async (req, res) => {
     }
 
     // --- FIX: Handle new call notes ---
-    // If a new note is part of the payload, add it to the call history array.
-    if (updateData.newCallNote && updateData.newCallNote.notes) {
+    // If a new note is part of the payload (sent as `newNote` from frontend), add it to the call history array.
+    if (updateData.newNote && updateData.newNote.notes) {
         // NOTE: The loggedById and loggedByName should come from `req.user` 
         // which is populated by an authentication middleware (e.g., JWT).
         const newNote = {
             loggedById: new mongoose.Types.ObjectId('65f16e6772e62b5a85593b89'), // Placeholder ID, replace with req.user._id
             loggedByName: 'Current User', // Placeholder Name, replace with req.user.fullName
-            notes: updateData.newCallNote.notes,
-            callStatus: updateData.newCallNote.callStatus,
+            notes: updateData.newNote.notes,
+            callStatus: updateData.newNote.callStatus,
         };
-        updateData.$push = { callHistory: newNote };
-        delete updateData.newCallNote; // Clean up the temporary field
+        atomicOps.$push = { callHistory: newNote };
+        delete updateData.newNote; // Clean up the temporary field
+        // *** CRITICAL FIX: Prevent conflict by deleting the field from the main update object ***
+        delete updateData.callHistory; 
     }
 
     // --- FIX: Handle new EXTERNAL call notes from Bank Executives ---
@@ -150,15 +156,17 @@ exports.updateLead = async (req, res) => {
             callStatus: 'Log' // External notes are just logs
         };
         // Use $push to add to the externalCallHistory array
-        updateData.$push = { ...updateData.$push, externalCallHistory: newNote };
+        if (!atomicOps.$push) atomicOps.$push = {};
+        atomicOps.$push.externalCallHistory = newNote;
         delete updateData.externalCallNote;
+        delete updateData.externalCallHistory;
     }
 
     // Perform the main lead update
     try {
         const updatedLead = await Lead.findByIdAndUpdate(
             id,
-            updateData,
+            { ...atomicOps, $set: updateData },
             { new: true, runValidators: true }
         );
         if (!updatedLead) {

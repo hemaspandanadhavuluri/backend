@@ -274,3 +274,38 @@ exports.verifyOTP = async (req, res) => {
         res.status(500).json({ message: 'Server error verifying OTP.' });
     }
 };
+
+/**
+ * Fetches all Field Officers (FOs), optionally filtering by region.
+ * @route GET /api/users/fos
+ */
+exports.getFieldOfficers = async (req, res) => {
+    const { region } = req.query;
+    let filter = { role: 'FO' };
+
+    if (region) {
+        filter.region = region;
+    }
+
+    try {
+        const fos = await User.find(filter).select('_id fullName region');
+        res.status(200).json(fos);
+    } catch (error) {
+        console.error('Error fetching Field Officers:', error);
+        res.status(500).json({ message: 'Server error fetching Field Officers.' });
+    }
+};
+
+/**
+ * Fetches all unique regions from the user database.
+ * @route GET /api/users/regions
+ */
+exports.getRegions = async (req, res) => {
+    try {
+        const regions = await User.find({ region: { $exists: true, $ne: null, $ne: "" } }).distinct('region');
+        res.status(200).json(regions);
+    } catch (error) {
+        console.error('Error fetching regions:', error);
+        res.status(500).json({ message: 'Server error fetching regions.' });
+    }
+};

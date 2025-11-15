@@ -16,4 +16,10 @@ router.get('/managers', userController.getManagers);
 router.post('/send-otp', userController.sendOTP);
 router.post('/verify-otp', userController.verifyOTP);
 
+// New route to get all unique regions
+router.get('/regions', userController.getRegions);
+
+ // Route to get FOs, optionally by region
+router.get('/fos', userController.getFieldOfficers);
+
 module.exports = router;

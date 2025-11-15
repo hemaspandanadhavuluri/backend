@@ -190,7 +190,7 @@ const LeadSchema = new mongoose.Schema({
   // Reminder and Call History Fields
   lastCallDate: { type: Date }, // Will be updated every time a note is logged
   reminderCallDate: { type: Date }, // Primary field used for list view sorting
-  leadStatus: { type: String, enum: ['No status', 'Sanctioned', 'Rejected', 'In Progress', 'New'], default: 'New' },
+  leadStatus: { type: String, enum: ['No status', 'Sanctioned', 'Rejected', 'In Progress', 'New', 'On Priority', 'Application Incomplete'], default: 'New' },
   targetSanctionDate: { type: Date },
 
   // NEW: Embedded Call History
