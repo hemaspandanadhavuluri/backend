@@ -15,6 +15,8 @@ const candidateRoutes = require('./routes/candidateRoutes');
 const attendanceRoutes = require('./routes/attendanceRoutes');
 const leaveRoutes = require('./routes/leaveRoutes');
 const payrollRoutes = require('./routes/payrollRoutes');
+const onboardingRoutes = require('./routes/onboardingRoutes');
+const trainingRoutes = require('./routes/trainingRoutes');
 
 dotenv.config();
 
@@ -56,6 +58,8 @@ app.use('/api/candidates', candidateRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/leave', leaveRoutes);
 app.use('/api/payroll', payrollRoutes);
+app.use('/api/onboarding', onboardingRoutes);
+app.use('/api/training', trainingRoutes);
 
 // Basic health check route
 app.get('/', (req, res) => {
