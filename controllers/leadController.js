@@ -13,7 +13,7 @@ const generateUniqueLeadID = () => {
 exports.getAllLeads = async (req, res) => {
     // ** 🔄 CRITICAL CHANGE HERE: Read user data from query parameters (req.query) 🔄 **
     // The frontend sends this data via URL query params, e.g., /api/leads?userId=...&role=...
-    const { userId, role, region, zone, bank, assigned } = req.query;
+    const { userId, role, region, zone, bank, assigned, searchTerm } = req.query;
 
     // The user object is now constructed directly from the frontend request query.
     // No more mock data fallback.
@@ -46,6 +46,22 @@ exports.getAllLeads = async (req, res) => {
         filter = { assignedFOId: { $exists: false } };
     } else {
         return res.status(403).json({ message: 'Access Denied: Role not authorized to view leads.' });
+    }
+
+    // --- NEW: Add search term logic ---
+    if (searchTerm) {
+        const searchRegex = { $regex: searchTerm, $options: 'i' }; // Case-insensitive regex
+        const searchFilter = {
+            $or: [
+                { leadID: searchRegex }, // Ensure leadID is searchable
+                { fullName: searchRegex },
+                { email: searchRegex },
+                { mobileNumbers: searchRegex },
+                { 'source.source': searchRegex },
+                { 'source.name': searchRegex }
+            ]
+        };
+        filter = { ...filter, ...searchFilter }; // Combine role filter with search filter
     }
 
     try {
