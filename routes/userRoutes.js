@@ -22,4 +22,7 @@ router.get('/regions', userController.getRegions);
  // Route to get FOs, optionally by region
 router.get('/fos', userController.getFieldOfficers);
 
+// Route to get users that can be assigned tasks
+router.get('/assignable', userController.getAssignableUsers);
+
 module.exports = router;

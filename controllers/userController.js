@@ -4,21 +4,10 @@ const Bank = require('../models/bankModel'); // Import the Bank model
 // const bcrypt = require('bcryptjs'); // Needed for real-world password hashing
 const mongoose = require('mongoose');
 const multer = require('multer');
-const path = require('path');
 const nodemailer = require('nodemailer');
-
-// Configure multer for file uploads
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, 'uploads/'); // Ensure this directory exists
-    },
-    filename: (req, file, cb) => {
-        cb(null, Date.now() + path.extname(file.originalname));
-    }
-});
-
-const upload = multer({ storage: storage });
-
+const upload = require('../middlewares/uploadMiddleware'); // Import multer middleware
+const path = require('path');
+const emailService = require('../services/emailService'); // Import the central email service
 // Configure nodemailer transporter
 const transporter = nodemailer.createTransport({
     service: 'gmail',
@@ -27,7 +16,6 @@ const transporter = nodemailer.createTransport({
         pass: 'lfxs gaqv ldyd rwnj'
     }
 });
-
 /**
  * Creates a new user/employee (HR, FO, Head, etc.).
  * @route POST /api/users/register
@@ -190,18 +178,18 @@ exports.sendOTP = async (req, res) => {
                 to: identifier,
                 subject: 'Your OTP for Employee Login',
                 html: `
-                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
-                        <h2 style="color: #1976d2; text-align: center;">Employee Portal Login</h2>
-                        <p>Hello ${user.fullName},</p>
-                        <p>Your One-Time Password (OTP) for login is:</p>
-                        <div style="text-align: center; margin: 30px 0;">
-                            <span style="font-size: 32px; font-weight: bold; color: #1976d2; background: #f5f5f5; padding: 10px 20px; border-radius: 5px; letter-spacing: 5px;">${otp}</span>
-                        </div>
-                        <p>This OTP will expire in 5 minutes.</p>
-                        <p>If you didn't request this OTP, please ignore this email.</p>
-                        <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
-                        <p style="color: #666; font-size: 12px; text-align: center;">This is an automated message from the Employee Portal.</p>
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
+                    <h2 style="color: #1976d2; text-align: center;">Employee Portal Login</h2>
+                    <p>Hello ${user.fullName},</p>
+                    <p>Your One-Time Password (OTP) for login is:</p>
+                    <div style="text-align: center; margin: 30px 0;">
+                        <span style="font-size: 32px; font-weight: bold; color: #1976d2; background: #f5f5f5; padding: 10px 20px; border-radius: 5px; letter-spacing: 5px;">${otp}</span>
                     </div>
+                    <p>This OTP will expire in 5 minutes.</p>
+                    <p>If you didn't request this OTP, please ignore this email.</p>
+                    <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
+                    <p style="color: #666; font-size: 12px; text-align: center;">This is an automated message from the Employee Portal.</p>
+                </div>
                 `
             };
 
@@ -307,5 +295,20 @@ exports.getRegions = async (req, res) => {
     } catch (error) {
         console.error('Error fetching regions:', error);
         res.status(500).json({ message: 'Server error fetching regions.' });
+    }
+};
+
+/**
+ * Fetches all users who can be assigned a task (everyone except CEO).
+ * @route GET /api/users/assignable
+ */
+exports.getAssignableUsers = async (req, res) => {
+    try {
+        // Find all users whose role is not 'CEO'
+        const users = await User.find({ role: { $ne: 'CEO' } }).select('_id fullName role');
+        res.status(200).json(users);
+    } catch (error) {
+        console.error('Error fetching assignable users:', error);
+        res.status(500).json({ message: 'Server error fetching assignable users.' });
     }
 };

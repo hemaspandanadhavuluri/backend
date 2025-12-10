@@ -7,6 +7,8 @@ const path = require('path');
 const leadRoutes = require('./routes/leadRoutes');
 const userRoutes = require('./routes/userRoutes');
 const bankRoutes = require('./routes/bankRoutes');
+const emailService = require('./services/emailService');
+const taskRoutes = require('./routes/taskRoutes'); // Import task routes
 
 dotenv.config();
 
@@ -22,6 +24,12 @@ mongoose.connect(MONGODB_URI)
         process.exit(1);
     });
 
+// Initialize the email service after DB connection
+mongoose.connection.once('open', () => {
+    emailService.init().catch(err => {
+        console.error('Failed to initialize email service:', err);
+    });
+});
 
 const corsOptions = {
     origin: 'http://localhost:3000',
@@ -41,6 +49,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/api/leads', leadRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/banks', bankRoutes);
+app.use('/api/tasks', taskRoutes); // Add task routes
 
 // Basic health check route
 app.get('/', (req, res) => {

@@ -63,7 +63,7 @@ const EmbeddedCallNoteSchema = new mongoose.Schema({
     notes: { type: String, required: true },
     callStatus: { 
         type: String, 
-        enum: ['Connected', 'Not Reached', 'Busy', 'Scheduled'],
+        enum: ['Connected', 'Not Reached', 'Busy', 'Scheduled', 'Log'],
         default: 'Connected' 
     },
     nextCallDate: { type: Date }, // Optional reminder date set during the call
@@ -76,6 +76,14 @@ const BankAssignmentSchema = new mongoose.Schema({
     assignedRMName: { type: String }, // Name of the assigned Relationship Manager
     assignedRMEmail: { type: String }, // Email of the assigned RM
     assignedAt: { type: Date, default: Date.now },
+}, { _id: false });
+
+// --- NEW: Document Sub-Schema ---
+const DocumentSchema = new mongoose.Schema({
+    documentType: { type: String, required: true },
+    fileName: { type: String, required: true },
+    filePath: { type: String, required: true },
+    uploadedAt: { type: Date, default: Date.now }
 }, { _id: false });
 
 // --- 3. Main Lead Schema (Updated) ---
@@ -204,7 +212,10 @@ const LeadSchema = new mongoose.Schema({
       default: []
   },
   // NEW: Array to track assignments to banks
-  assignedBanks: { type: [BankAssignmentSchema], default: [] }
+  assignedBanks: { type: [BankAssignmentSchema], default: [] },
+
+  // NEW: Array to store uploaded documents
+  documents: { type: [DocumentSchema], default: [] }
 
 }, { timestamps: true }); 
 

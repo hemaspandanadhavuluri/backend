@@ -1,5 +1,6 @@
 // src/controllers/leadController.js
 const Lead = require('../models/leadModel');
+const emailService = require('../services/emailService'); // Corrected path
 const mongoose = require('mongoose');
 
 // Helper to generate a unique Lead ID (e.g., a simple counter or UUID/timestamp based)
@@ -128,6 +129,7 @@ exports.getLeadById = async (req, res) => {
 exports.updateLead = async (req, res) => {
     const { id } = req.params;
     const updateData = req.body;
+    console.log("updateData ", updateData);
         
     // --- FIX: Separate atomic operators from direct updates ---
     const atomicOps = {};
@@ -146,14 +148,14 @@ exports.updateLead = async (req, res) => {
 
     // --- FIX: Handle new call notes ---
     // If a new note is part of the payload (sent as `newNote` from frontend), add it to the call history array.
-    if (updateData.newNote && updateData.newNote.notes) {
+    if (updateData.externalCallNote && updateData.externalCallNote.notes) {
         // NOTE: The loggedById and loggedByName should come from `req.user` 
         // which is populated by an authentication middleware (e.g., JWT).
         const newNote = {
             loggedById: new mongoose.Types.ObjectId('65f16e6772e62b5a85593b89'), // Placeholder ID, replace with req.user._id
-            loggedByName: 'Current User', // Placeholder Name, replace with req.user.fullName
-            notes: updateData.newNote.notes,
-            callStatus: updateData.newNote.callStatus,
+            loggedByName: updateData.externalCallNote.loggedByName, // Placeholder Name, replace with req.user.fullName
+            notes: updateData.externalCallNote.notes,
+            // callStatus: updateData.externalCallNote.callStatus,
         };
         atomicOps.$push = { callHistory: newNote };
         delete updateData.newNote; // Clean up the temporary field
@@ -243,5 +245,97 @@ exports.assignToBank = async (req, res) => {
         res.status(200).json({ lead: updatedLead, message: `Lead assigned to ${assignedRM.name} at ${bankName}.` });
     } catch (error) {
         res.status(500).json({ message: 'Failed to assign lead to bank.', error: error.message });
+    }
+};
+
+/**
+ * 6. POST /api/leads/:id/upload-document - Upload a document for a lead
+ */
+exports.uploadDocument = async (req, res) => {
+    const { id } = req.params;
+    const { documentType } = req.body;
+
+    if (!req.file) {
+        return res.status(400).json({ message: 'No file uploaded.' });
+    }
+    if (!documentType) {
+        return res.status(400).json({ message: 'Document type is required.' });
+    }
+
+    try {
+        const lead = await Lead.findById(id);
+        if (!lead) {
+            return res.status(404).json({ message: 'Lead not found.' });
+        }
+
+        const newDocument = {
+            documentType,
+            fileName: req.file.originalname,
+            filePath: `/uploads/${req.file.filename}` // Path to access the file via the static route
+        };
+
+        // Remove existing doc of the same type before adding new one
+        lead.documents = lead.documents.filter(doc => doc.documentType !== documentType);
+        lead.documents.push(newDocument);
+
+        const updatedLead = await lead.save();
+        res.status(200).json(updatedLead);
+
+    } catch (error) {
+        res.status(500).json({ message: 'Failed to upload document.', error: error.message });
+    }
+};
+
+/**
+ * 7. POST /api/leads/:id/send-document-link - Send document upload link to student
+ */
+exports.sendDocumentLink = async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const lead = await Lead.findById(id);
+        if (!lead) {
+            return res.status(404).json({ message: 'Lead not found.' });
+        }
+
+        if (!lead.email) {
+            return res.status(400).json({ message: 'Lead does not have an email address.' });
+        }
+
+        await emailService.sendDocumentUploadEmail(lead.email, lead.fullName, lead._id);
+
+        res.status(200).json({ message: `Document upload link sent to ${lead.email}.` });
+
+    } catch (error) {
+        console.error('Failed to send document link email:', error);
+        res.status(500).json({ message: 'Failed to send email.', error: error.message });
+    }
+};
+
+/**
+ * 8. POST /api/leads/:id/send-email - Send a generic template email to the student
+ */
+exports.sendTemplateEmail = async (req, res) => {
+    const { id } = req.params;
+    const { subject, body } = req.body;
+
+    if (!subject || !body) {
+        return res.status(400).json({ message: 'Email subject and body are required.' });
+    }
+
+    try {
+        const lead = await Lead.findById(id).select('email fullName');
+        if (!lead) {
+            return res.status(404).json({ message: 'Lead not found.' });
+        }
+        if (!lead.email) {
+            return res.status(400).json({ message: 'Lead does not have an email address.' });
+        }
+
+        await emailService.sendGenericEmail(lead.email, subject, body);
+        res.status(200).json({ message: `Email sent successfully to ${lead.email}.` });
+    } catch (error) {
+        console.error('Failed to send template email:', error);
+        res.status(500).json({ message: 'Failed to send email.', error: error.message });
     }
 };
