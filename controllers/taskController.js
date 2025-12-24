@@ -1,70 +1,65 @@
 const Task = require('../models/taskModel');
-const mongoose = require('mongoose');
 
-/**
- * Create a new task.
- * @route POST /api/tasks
- */
+// Create a new task
 exports.createTask = async (req, res) => {
-    const { leadId, assignedToId, assignedToName, subject, body } = req.body;
-    // In a real app, createdById and createdByName would come from `req.user` (auth middleware)
-    const { createdById, createdByName } = req.body; // MOCKING for now
-
-    if (!leadId || !assignedToId || !subject || !createdById || !createdByName) {
-        return res.status(400).json({ message: 'Missing required fields: leadId, assignedToId, subject, and creator info.' });
-    }
-
     try {
-        const task = await Task.create({
-            leadId,
-            assignedToId,
-            assignedToName,
-            subject,
-            body,
-            createdById,
-            createdByName,
-        });
+        const task = new Task(req.body);
+        await task.save();
         res.status(201).json(task);
     } catch (error) {
-        console.error('Error creating task:', error);
-        res.status(500).json({ message: 'Server error while creating task.' });
+        res.status(400).json({ message: 'Failed to create task', error: error.message });
     }
 };
 
-/**
- * Get tasks, filtered by assignedToId.
- * @route GET /api/tasks
- */
+// Get tasks, can be filtered by assignedToId or leadId
 exports.getTasks = async (req, res) => {
-    const { assignedToId } = req.query;
-    if (!assignedToId) {
-        return res.status(400).json({ message: 'An assignedToId is required to fetch tasks.' });
-    }
-
     try {
-        const tasks = await Task.find({ assignedToId }).sort({ createdAt: -1 });
+        const filter = {};
+        if (req.query.assignedToId) {
+            filter.assignedToId = req.query.assignedToId;
+        }
+        const tasks = await Task.find(filter).sort({ createdAt: -1 });
         res.status(200).json(tasks);
     } catch (error) {
-        console.error('Error fetching tasks:', error);
-        res.status(500).json({ message: 'Server error while fetching tasks.' });
+        res.status(500).json({ message: 'Failed to fetch tasks', error: error.message });
     }
 };
 
-/**
- * Get all tasks for a specific lead.
- * @route GET /api/tasks/lead/:leadId
- */
-exports.getTasksForLead = async (req, res) => {
-    const { leadId } = req.params;
-    if (!mongoose.Types.ObjectId.isValid(leadId)) {
-        return res.status(400).json({ message: 'Invalid Lead ID.' });
+// Get all tasks for a specific lead
+exports.getTasksByLead = async (req, res) => {
+    try {
+        const tasks = await Task.find({ leadId: req.params.leadId }).sort({ createdAt: -1 });
+        if (!tasks) {
+            return res.status(404).json({ message: 'No tasks found for this lead.' });
+        }
+        res.status(200).json(tasks);
+    } catch (error) {
+        res.status(500).json({ message: 'Failed to fetch tasks for lead', error: error.message });
+    }
+};
+
+// Update a task's status
+exports.updateTask = async (req, res) => {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (!status || !['Open', 'Done'].includes(status)) {
+        return res.status(400).json({ message: 'Invalid status provided.' });
     }
 
     try {
-        const tasks = await Task.find({ leadId }).sort({ createdAt: -1 });
-        res.status(200).json(tasks);
+        const updatedTask = await Task.findByIdAndUpdate(
+            id,
+            { status: status },
+            { new: true, runValidators: true }
+        );
+
+        if (!updatedTask) {
+            return res.status(404).json({ message: 'Task not found.' });
+        }
+
+        res.status(200).json(updatedTask);
     } catch (error) {
-        console.error('Error fetching tasks for lead:', error);
-        res.status(500).json({ message: 'Server error while fetching tasks for lead.' });
+        res.status(400).json({ message: 'Failed to update task.', error: error.message });
     }
 };

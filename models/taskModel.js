@@ -6,25 +6,38 @@ const TaskSchema = new mongoose.Schema({
         ref: 'Lead',
         required: true
     },
+    subject: {
+        type: String,
+        required: true,
+        trim: true
+    },
+    body: {
+        type: String,
+        trim: true
+    },
     assignedToId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
         required: true
     },
-    assignedToName: { type: String, required: true },
+    assignedToName: {
+        type: String,
+        required: true
+    },
     createdById: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
         required: true
     },
-    createdByName: { type: String, required: true },
-    subject: {
+    createdByName: {
         type: String,
-        required: [true, 'Task subject is required.'],
-        trim: true
+        required: true
     },
-    body: { type: String, trim: true },
-    status: { type: String, enum: ['Open', 'Completed'], default: 'Open' },
+    status: {
+        type: String,
+        enum: ['Open', 'Done'],
+        default: 'Open'
+    }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Task', TaskSchema);
