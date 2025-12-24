@@ -78,7 +78,7 @@ exports.getAllLeads = async (req, res) => {
 
 
 exports.createLead = async (req, res) => {
-    const { fullName, mobileNumbers, source,zone,region,assignedFOId,assignedFO,assignedFOPhone } = req.body;
+    const { fullName, mobileNumbers, source, zone, region, assignedFOId, assignedFO, assignedFOPhone } = req.body;
 
     if (!fullName || !mobileNumbers || mobileNumbers.length === 0 || !source || !source?.source) {
         return res.status(400).json({ message: 'Required fields: Full Name, Mobile Number(s), and Source Type.' });
@@ -205,10 +205,10 @@ exports.updateLead = async (req, res) => {
  */
 exports.assignToBank = async (req, res) => {
     const { id } = req.params;
-    const { bankId, bankName } = req.body;
+    const { bankId, bankName, assignedRMName, assignedRMEmail } = req.body;
 
-    if (!bankId || !bankName) {
-        return res.status(400).json({ message: 'Bank ID and Bank Name are required.' });
+    if (!bankId || !bankName || !assignedRMName || !assignedRMEmail) {
+        return res.status(400).json({ message: 'Bank ID, Bank Name, and RM details are required.' });
     }
 
     try {
@@ -217,32 +217,18 @@ exports.assignToBank = async (req, res) => {
             return res.status(404).json({ message: 'Lead not found.' });
         }
 
-        // Check if already assigned to this bank to prevent duplicates
         if (lead.assignedBanks.some(b => b.bankId.toString() === bankId)) {
             return res.status(409).json({ message: `Lead already assigned to ${bankName}.` });
-        }
-
-        // --- NEW: Find the correct RM based on the lead's region ---
-        const bankDetails = await mongoose.model('Bank').findById(bankId);
-        if (!bankDetails) {
-            return res.status(404).json({ message: 'Bank details not found.' });
-        }
-
-        const leadRegion = lead.region;
-        const assignedRM = bankDetails.relationshipManagers.find(rm => rm.region === leadRegion);
-
-        if (!assignedRM) {
-            return res.status(404).json({ message: `No Relationship Manager found for the ${leadRegion} region in ${bankName}.` });
         }
 
         lead.assignedBanks.push({ 
             bankId, 
             bankName,
-            assignedRMName: assignedRM.name,
-            assignedRMEmail: assignedRM.email
+            assignedRMName: assignedRMName,
+            assignedRMEmail: assignedRMEmail
         });
         const updatedLead = await lead.save();
-        res.status(200).json({ lead: updatedLead, message: `Lead assigned to ${assignedRM.name} at ${bankName}.` });
+        res.status(200).json({ lead: updatedLead, message: `Lead assigned to ${assignedRMName} at ${bankName}.` });
     } catch (error) {
         res.status(500).json({ message: 'Failed to assign lead to bank.', error: error.message });
     }

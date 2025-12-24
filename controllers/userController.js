@@ -276,7 +276,7 @@ exports.getFieldOfficers = async (req, res) => {
     }
 
     try {
-        const fos = await User.find(filter).select('_id fullName region');
+        const fos = await User.find(filter).select('_id fullName region phoneNumber zone');
         res.status(200).json(fos);
     } catch (error) {
         console.error('Error fetching Field Officers:', error);

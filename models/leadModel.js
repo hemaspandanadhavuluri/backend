@@ -42,6 +42,7 @@ const CoApplicantSchema = new mongoose.Schema({
   cibilIssues: { type: String, default: '' },
   isCoApplicant: { type: Boolean, default: false },
   isDivorced: { type: Boolean, default: false },
+  documents: { type: [String], default: [] }, // NEW: To track collected documents
   knowsCoApplicant: { type: Boolean, default: true },
 }, { _id: false });
 
@@ -125,7 +126,20 @@ const LeadSchema = new mongoose.Schema({
   admitReceived: { type: Boolean, default: false },
   admittedUniversities: { type: String },
   approachedAnyBank: { type: Boolean, default: false },
+  expectedAdmitDate: { type: Date },
+  expectedApplicationDate: { type: Date },
   previousBankApproached: { type: String },
+  fileLoggedIn: { type: Boolean },
+  loanSanctioned: { type: Boolean },
+  sanctionDetails: {
+    rateOfInterest: { type: String },
+    processingFeePaid: { type: Boolean },
+    disbursementDone: { type: Boolean },
+    coApplicant: { type: String },
+    loanSecurity: { type: String, enum: ['Secure', 'Unsecure'] },
+    loanAmount: { type: Number },
+    sanctionDate: { type: Date } // NEW
+  },
 
   // 3. Test Scores (Embedded Document)
   testScores: { type: TestScoresSchema, default: {} },
@@ -133,9 +147,13 @@ const LeadSchema = new mongoose.Schema({
   // 4. Financial Info
   age: { type: Number },
   workExperience: { type: String },
-  hasLoans: { type: Boolean, default: false },
+  hasStudentLoans: { type: Boolean, default: false },
+  studentLoanDetails: { type: String },
   courseDuration: { type: String },
   fee: { type: Number },
+  originalFee: { type: Number },
+  originalFeeCurrency: { type: String },
+  conversionRate: { type: Number },
   living: { type: Number },
   otherExpenses: { type: Number },
   maxUnsecuredGivenByUBI: { type: Number },
@@ -146,6 +164,7 @@ const LeadSchema = new mongoose.Schema({
   assets: [{
     assetType: { type: String, enum: ['Physical Property', 'Fixed Deposit', 'LIC Policy', 'Government Bond'] },
     ownerName: { type: String, default: '' },
+    ownerRelationship: { type: String, default: '' }, // NEW
     assetValue: { type: String, default: '' }, // Using String to accommodate different formats
     // Physical Property Details
     propertyType: { type: String, enum: ['House', 'Flat', 'Non-agricultural Land', 'Commercial Property'] },
@@ -198,8 +217,10 @@ const LeadSchema = new mongoose.Schema({
   // Reminder and Call History Fields
   lastCallDate: { type: Date }, // Will be updated every time a note is logged
   reminderCallDate: { type: Date }, // Primary field used for list view sorting
-  leadStatus: { type: String, enum: ['No status', 'Sanctioned', 'Rejected', 'In Progress', 'New', 'On Priority', 'Application Incomplete'], default: 'New' },
-  targetSanctionDate: { type: Date },
+  leadStatus: { type: String, enum: ['No status', 'Sanctioned', 'Close', 'In Progress', 'New', 'On Priority', 'Application Incomplete'], default: 'New' },
+  priorityReason: { type: String }, // NEW: Reason for being a priority
+  closeReason: { type: String }, // NEW: Reason for closing the lead
+  targetSanctionDate: { type: Date }, // This field will store the future target date
 
   // NEW: Embedded Call History
   callHistory: {
