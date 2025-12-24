@@ -53,6 +53,25 @@ const ReferralListItemSchema = new mongoose.Schema({
     phoneNumber: { type: String, default: '' },
 }, { _id: false });
 
+// --- NEW: Sanction Details Sub-Schema ---
+const SanctionDetailsSchema = new mongoose.Schema({
+    rateOfInterest: { type: String, default: '' },
+    processingFeePaid: { type: Boolean, default: false },
+    disbursementDone: { type: Boolean, default: false },
+    coApplicant: { type: String, default: '' },
+    loanSecurity: { type: String, enum: ['Secure', 'Unsecure', ''] },
+    loanAmount: { type: Number, default: 0 },
+    sanctionDate: { type: Date }
+}, { _id: false });
+
+// --- NEW: Approached Bank Sub-Schema ---
+const ApproachedBankSchema = new mongoose.Schema({
+  bankName: { type: String, default: '' },
+  fileLoggedIn: { type: Boolean, default: false },
+  loanSanctioned: { type: Boolean, default: false },
+  sanctionDetails: { type: SanctionDetailsSchema, default: () => ({}) }
+}, { _id: false });
+
 // --- 2. NEW Embedded Call Note Sub-Schema ---
 const EmbeddedCallNoteSchema = new mongoose.Schema({
     loggedById: { 
@@ -125,21 +144,15 @@ const LeadSchema = new mongoose.Schema({
   interestedCountries: { type: String },
   admitReceived: { type: Boolean, default: false },
   admittedUniversities: { type: String },
-  approachedAnyBank: { type: Boolean, default: false },
   expectedAdmitDate: { type: Date },
   expectedApplicationDate: { type: Date },
-  previousBankApproached: { type: String },
-  fileLoggedIn: { type: Boolean },
-  loanSanctioned: { type: Boolean },
-  sanctionDetails: {
-    rateOfInterest: { type: String },
-    processingFeePaid: { type: Boolean },
-    disbursementDone: { type: Boolean },
-    coApplicant: { type: String },
-    loanSecurity: { type: String, enum: ['Secure', 'Unsecure'] },
-    loanAmount: { type: Number },
-    sanctionDate: { type: Date } // NEW
-  },
+
+  // --- REFACTORED: Bank Approach Details ---
+  approachedAnyBank: { type: Boolean, default: false },
+  approachedBanks: { type: [ApproachedBankSchema], default: [] },
+
+  // --- RE-ADD: Top-level Sanction Details for Final Status ---
+  sanctionDetails: { type: SanctionDetailsSchema, default: () => ({}) },
 
   // 3. Test Scores (Embedded Document)
   testScores: { type: TestScoresSchema, default: {} },
@@ -156,6 +169,7 @@ const LeadSchema = new mongoose.Schema({
   conversionRate: { type: Number },
   living: { type: Number },
   otherExpenses: { type: Number },
+  loanAmountRequired: { type: Number },
   maxUnsecuredGivenByUBI: { type: Number },
   hasAssets: { type: Boolean, default: false },
   listOfFOsServed: { type: [String], default: [] }, 

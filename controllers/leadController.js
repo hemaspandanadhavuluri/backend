@@ -148,16 +148,20 @@ exports.updateLead = async (req, res) => {
 
     // --- FIX: Handle new call notes ---
     // If a new note is part of the payload (sent as `newNote` from frontend), add it to the call history array.
-    if (updateData.externalCallNote && updateData.externalCallNote.notes) {
+    if (updateData.newNote && updateData.newNote.notes) {
         // NOTE: The loggedById and loggedByName should come from `req.user` 
         // which is populated by an authentication middleware (e.g., JWT).
         const newNote = {
-            loggedById: new mongoose.Types.ObjectId('65f16e6772e62b5a85593b89'), // Placeholder ID, replace with req.user._id
-            loggedByName: updateData.externalCallNote.loggedByName, // Placeholder Name, replace with req.user.fullName
-            notes: updateData.externalCallNote.notes,
-            // callStatus: updateData.externalCallNote.callStatus,
+            loggedById: new mongoose.Types.ObjectId(updateData.newNote.loggedById),
+            loggedByName: updateData.newNote.loggedByName,
+            notes: updateData.newNote.notes,
+            callStatus: updateData.newNote.callStatus || 'Log',
         };
+        if (!newNote.loggedById || !newNote.loggedByName) {
+            return res.status(400).json({ message: 'Could not log note. User information is missing from the request.' });
+        }
         atomicOps.$push = { callHistory: newNote };
+        updateData.lastCallDate = new Date(); // Also update lastCallDate to now
         delete updateData.newNote; // Clean up the temporary field
         // *** CRITICAL FIX: Prevent conflict by deleting the field from the main update object ***
         delete updateData.callHistory; 
