@@ -33,6 +33,10 @@ const TaskSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    creatorRole: {
+        type: String,
+        default: 'Employee'
+    },
     status: {
         type: String,
         enum: ['Open', 'Done'],

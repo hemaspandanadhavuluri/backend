@@ -14,6 +14,8 @@ router.post('/:id/assign-bank', leadController.assignToBank); // POST assign lea
 router.post('/:id/upload-document', upload.single('document'), leadController.uploadDocument); // NEW: Upload document route
 router.post('/:id/send-document-link', leadController.sendDocumentLink); // NEW: Send document link route
 router.post('/:id/send-email', leadController.sendTemplateEmail); // NEW: Send generic template email
+router.post('/:id/send-document-otp', leadController.sendDocumentAccessOtp); // NEW: Send OTP for doc access
+router.post('/:id/verify-document-otp', leadController.verifyDocumentAccessOtp); // NEW: Verify OTP for doc access
 
 
 module.exports = router;
