@@ -7,7 +7,9 @@ const TestScoresSchema = new mongoose.Schema({
   GRE: { type: String, default: "" },
   IELTS: { type: String, default: "" },
   TOEFL: { type: String, default: "" },
-  GMAT: { type: String, default: "" },
+  GMAT: { type: String, default: ""
+    
+   },
   SAT: { type: String, default: "" },
   PTE: { type: String, default: "" },
   ACT: { type: String, default: "" },
@@ -127,10 +129,13 @@ const LeadSchema = new mongoose.Schema({
   planningToStudy: { type: String },
   source: { type: SourceSchema }, // MADE REQUIRED for initial capture
   
-  // Assignee Information 
+  // Assignee Information
   assignedFOId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   assignedFO: { type: String },
   assignedFOPhone: { type: String },
+  counsellorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  counsellorName: { type: String },
+  counsellorEmail: { type: String },
   studentAppliedDate: { type: Date, default: Date.now },
   studentAppliedTime: { type: String },
 
@@ -141,9 +146,9 @@ const LeadSchema = new mongoose.Schema({
   courseStartYear: { type: String },
   degree: { type: String },
   fieldOfInterest: { type: String },
-  interestedCountries: { type: String },
+  interestedCountries: { type: [String], default: [] },
   admitReceived: { type: Boolean, default: false },
-  admittedUniversities: { type: String },
+  admittedUniversities: { type: [String], default: [] },
   expectedAdmitDate: { type: Date },
   expectedApplicationDate: { type: Date },
 
@@ -222,7 +227,7 @@ const LeadSchema = new mongoose.Schema({
   ] },
 
   // 7. Other Info
-  panStatus: { type: String, enum: ['Not Interested', 'Not Available', 'Applied', 'Available'], default: 'Not Interested' },
+  panStatus: { type: String, enum: ['Not Interested', 'Not Available', 'Applied', 'Available'], default: 'Applied' },
   panNumber: { type: String },
   referralList: { type: [ReferralListItemSchema], default: [] },
   collateralLocation: { type: String },
@@ -231,6 +236,12 @@ const LeadSchema = new mongoose.Schema({
   // Reminder and Call History Fields
   lastCallDate: { type: Date }, // Will be updated every time a note is logged
   reminderCallDate: { type: Date }, // Primary field used for list view sorting
+  reminders: [{
+    date: { type: Date, required: true },
+    done: { type: Boolean, default: false },
+    createdAt: { type: Date, default: Date.now },
+    status: { type: String, default: 'No status' }
+  }],
   leadStatus: { type: String, enum: ['No status', 'Sanctioned', 'Close', 'In Progress', 'New', 'On Priority', 'Application Incomplete'], default: 'New' },
   priorityReason: { type: String }, // NEW: Reason for being a priority
   closeReason: { type: String }, // NEW: Reason for closing the lead

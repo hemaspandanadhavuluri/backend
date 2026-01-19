@@ -25,4 +25,8 @@ router.get('/fos', userController.getFieldOfficers);
 // Route to get users that can be assigned tasks
 router.get('/assignable', userController.getAssignableUsers);
 
+// Routes for counsellors
+router.get('/counsellors', userController.getCounsellors);
+router.post('/counsellors', userController.createCounsellor);
+
 module.exports = router;

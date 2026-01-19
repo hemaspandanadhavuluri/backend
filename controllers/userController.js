@@ -1,6 +1,7 @@
 // src/controllers/userController.js
 const User = require('../models/userModel');
 const Bank = require('../models/bankModel'); // Import the Bank model
+const Lead = require('../models/leadModel'); // Import the Lead model
 // const bcrypt = require('bcryptjs'); // Needed for real-world password hashing
 const mongoose = require('mongoose');
 const multer = require('multer');
@@ -250,7 +251,8 @@ exports.verifyOTP = async (req, res) => {
             role: userDetails.role,
             zone: userDetails.zone,
             region: userDetails.region,
-            bank: userDetails.bank
+            bank: userDetails.bank,
+            consultancy: userDetails.consultancy // Include consultancy for counsellors
         };
 
         res.status(200).json({
@@ -310,5 +312,51 @@ exports.getAssignableUsers = async (req, res) => {
     } catch (error) {
         console.error('Error fetching assignable users:', error);
         res.status(500).json({ message: 'Server error fetching assignable users.' });
+    }
+};
+
+/**
+ * Fetches all counsellors with lead count.
+ * @route GET /api/users/counsellors
+ */
+exports.getCounsellors = async (req, res) => {
+    try {
+        const counsellors = await User.find({ role: 'Counsellor' }).select('_id fullName email consultancy');
+        const counsellorsWithCount = await Promise.all(counsellors.map(async (counsellor) => {
+            const leadCount = await Lead.countDocuments({ counsellorId: counsellor._id });
+            return { ...counsellor.toObject(), leadCount };
+        }));
+        res.status(200).json(counsellorsWithCount);
+    } catch (error) {
+        console.error('Error fetching counsellors:', error);
+        res.status(500).json({ message: 'Server error fetching counsellors.' });
+    }
+};
+
+/**
+ * Creates a new counsellor.
+ * @route POST /api/users/counsellors
+ */
+exports.createCounsellor = async (req, res) => {
+    const { consultancy, fullName, email } = req.body;
+    if (!consultancy || !fullName || !email) {
+        return res.status(400).json({ message: 'Consultancy, full name, and email are required.' });
+    }
+    try {
+        const userExists = await User.findOne({ email });
+        if (userExists) {
+            return res.status(409).json({ message: 'User with that email already exists.' });
+        }
+        const counsellor = await User.create({
+            fullName,
+            email,
+            password: 'defaultpassword',
+            role: 'Counsellor',
+            consultancy
+        });
+        res.status(201).json(counsellor);
+    } catch (error) {
+        console.error('Error creating counsellor:', error);
+        res.status(500).json({ message: 'Server error creating counsellor.' });
     }
 };
