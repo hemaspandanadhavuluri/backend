@@ -44,10 +44,10 @@ jobs:
             cd /home/${{ secrets.EC2_USER }}/app
 
             echo "Stopping old containers..."
-            docker compose -f docker-compose.prod.yml down --remove-orphans
+            docker-compose -f docker-compose.prod.yml down --remove-orphans
 
             echo "Pulling latest backend image..."
-            docker compose -f docker-compose.prod.yml pull backend
+            docker-compose -f docker-compose.prod.yml pull backend
 
             echo "Starting updated backend..."
-            docker compose -f docker-compose.prod.yml up -d --build
+            docker-compose -f docker-compose.prod.yml up -d
