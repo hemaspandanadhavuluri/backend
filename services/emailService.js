@@ -32,7 +32,7 @@ async function sendDocumentUploadEmail(studentEmail, studentName, leadId) {
         throw new Error('Email service not initialized.');
     }
 
-    const uploadLink = `http://localhost:3000/leads/${leadId}/documents`;
+    const uploadLink = `http://13.48.131.69:3000/leads/${leadId}/documents`;
 
     const mailOptions = {
         // Use the authenticated user's email as the 'from' address for consistency

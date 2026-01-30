@@ -14,7 +14,7 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/leadmanagementdb';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://13.48.131.69:27017/leadmanagementdb';
 
 // Database Connection
 mongoose.connect(MONGODB_URI)
@@ -32,7 +32,7 @@ mongoose.connection.once('open', () => {
 });
 
 const corsOptions = {
-    origin: 'http://localhost:3000',
+    origin: 'http://13.48.131.69:3000',
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
     optionsSuccessStatus: 204
