@@ -18,6 +18,8 @@ router.post('/:id/send-document-link', leadController.sendDocumentLink); // NEW:
 router.post('/:id/send-email', leadController.sendTemplateEmail); // NEW: Send generic template email
 router.get('/stats/:counsellorId', leadController.getCounsellorStats); // NEW: Get counsellor stats
 router.get('/recent/:counsellorId', leadController.getRecentSubmissionsForCounsellor); // NEW: Get recent submissions for counsellor
+router.post('/:id/send-document-otp', leadController.sendDocumentAccessOtp); // NEW: Send OTP for doc access
+router.post('/:id/verify-document-otp', leadController.verifyDocumentAccessOtp); // NEW: Verify OTP for doc access
 
 
 module.exports = router;

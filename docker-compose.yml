@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  backend:
+    build: . # The build context is the current directory (the backend repo)
+    ports:
+      - "5000:5000"
+    environment:
+      - MONGODB_URI=mongodb+srv://justtapEDLoans:justtapEDLoans@justap-edloans.x48q4c6.mongodb.net/?retryWrites=true&w=majority&appName=justap-edloans
+
+      - PORT=5000
+      - EMAIL_USER=justtapnagendra@gmail.com
+      - EMAIL_PASS=lfxs gaqv ldyd rwnj
+    volumes:
+      - ./uploads:/usr/src/app/uploads # Path is now relative to the backend folder
+    depends_on:
+      - mongo
+    networks:
+      - app-network
+
+  frontend:
+    build: ../frontend # The build context points to the sibling 'frontend' directory
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+  mongo:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  mongo-data:
+    driver: local

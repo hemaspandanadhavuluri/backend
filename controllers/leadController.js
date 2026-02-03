@@ -3,6 +3,7 @@ const Lead = require('../models/leadModel');
 const emailService = require('../services/emailService'); // Corrected path
 const mongoose = require('mongoose');
 
+const otpStore = {}; // In-memory store for OTPs. In production, use Redis or a database.
 // Helper to generate a unique Lead ID (e.g., a simple counter or UUID/timestamp based)
 const generateUniqueLeadID = () => {
     return 'L-' + Date.now().toString().slice(-6) + Math.random().toString(36).substring(2, 5).toUpperCase();
@@ -300,6 +301,63 @@ exports.sendDocumentLink = async (req, res) => {
         console.error('Failed to send document link email:', error);
         res.status(500).json({ message: 'Failed to send email.', error: error.message });
     }
+};
+
+/**
+ * 9. POST /api/leads/:id/send-document-otp - Send OTP for document access
+ */
+exports.sendDocumentAccessOtp = async (req, res) => {
+    const { id } = req.params;
+    try {
+        const lead = await Lead.findById(id).select('email');
+        if (!lead || !lead.email) {
+            return res.status(404).json({ message: 'Lead not found or has no email.' });
+        }
+
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        const expiry = Date.now() + 10 * 60 * 1000; // 10 minutes
+
+        // Store OTP (in-memory for this example)
+        otpStore[id] = { otp, expiry };
+
+        await emailService.sendGenericEmail(
+            lead.email,
+            'Your One-Time Password for Document Access',
+            `<p>Your OTP for accessing lead documents is: <strong>${otp}</strong>. It is valid for 10 minutes.</p>`
+        );
+
+        res.status(200).json({ message: 'OTP sent successfully.' });
+    } catch (error) {
+        console.error('Error sending document access OTP:', error);
+        res.status(500).json({ message: 'Failed to send OTP.' });
+    }
+};
+
+/**
+ * 10. POST /api/leads/:id/verify-document-otp - Verify OTP for document access
+ */
+exports.verifyDocumentAccessOtp = async (req, res) => {
+    const { id } = req.params;
+    const { otp } = req.body;
+
+    const storedOtpData = otpStore[id];
+
+    if (!storedOtpData) {
+        return res.status(400).json({ message: 'No OTP was requested for this lead or it has expired.' });
+    }
+
+    if (Date.now() > storedOtpData.expiry) {
+        delete otpStore[id];
+        return res.status(400).json({ message: 'OTP has expired. Please request a new one.' });
+    }
+
+    if (storedOtpData.otp !== otp) {
+        return res.status(400).json({ message: 'Invalid OTP.' });
+    }
+
+    // OTP is correct. Clear it and send success response.
+    delete otpStore[id];
+    res.status(200).json({ success: true, message: 'OTP verified successfully.' });
 };
 
 /**

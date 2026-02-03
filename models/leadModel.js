@@ -147,6 +147,7 @@ const LeadSchema = new mongoose.Schema({
   degree: { type: String },
   fieldOfInterest: { type: String },
   interestedCountries: { type: [String], default: [] },
+  admissionStatus: { type: String },
   admitReceived: { type: Boolean, default: false },
   admittedUniversities: { type: [String], default: [] },
   expectedAdmitDate: { type: Date },
@@ -154,6 +155,9 @@ const LeadSchema = new mongoose.Schema({
 
   // --- REFACTORED: Bank Approach Details ---
   approachedAnyBank: { type: Boolean, default: false },
+  previousBankApproached: { type: String },
+  fileLoggedIn: { type: Boolean, default: false },
+  loanSanctioned: { type: Boolean, default: false },
   approachedBanks: { type: [ApproachedBankSchema], default: [] },
 
   // --- RE-ADD: Top-level Sanction Details for Final Status ---
@@ -167,6 +171,7 @@ const LeadSchema = new mongoose.Schema({
   workExperience: { type: String },
   hasStudentLoans: { type: Boolean, default: false },
   studentLoanDetails: { type: String },
+  studentLoanAmount: { type: Number },
   courseDuration: { type: String },
   fee: { type: Number },
   originalFee: { type: Number },
