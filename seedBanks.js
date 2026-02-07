@@ -8,119 +8,190 @@ const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/leadma
 
 const banksToSeed = [
     {
-        name: 'HDFC Bank',
+        name: 'Credila',
         relationshipManagers: [
             {
-                name: 'Ramesh Kumar (HDFC)',
-                email: 'ramesh.k@example-hdfc.com',
+                name: 'John Doe (Credila)',
+                email: 'john.doe@example-credila.com',
                 phoneNumber: '9876543210',
                 region: 'North'
             },
             {
-                name: 'Sita Sharma (HDFC)',
-                email: 'sita.s@example-hdfc.com',
+                name: 'Jane Smith (Credila)',
+                email: 'jane.smith@example-credila.com',
                 phoneNumber: '9876543211',
                 region: 'South'
-            },
-            {
-                name: 'Amit Patel (HDFC)',
-                email: 'amit.p@example-hdfc.com',
-                phoneNumber: '9876543212',
-                region: 'West'
             }
         ]
     },
     {
-        name: 'ICICI Bank',
+        name: 'Avanse',
+        relationshipManagers: [
+            {
+                name: 'Alice Johnson (Avanse)',
+                email: 'alice.johnson@example-avanse.com',
+                phoneNumber: '8765432109',
+                region: 'North'
+            },
+            {
+                name: 'Bob Brown (Avanse)',
+                email: 'bob.brown@example-avanse.com',
+                phoneNumber: '8765432108',
+                region: 'South'
+            }
+        ]
+    },
+    {
+        name: 'Incred',
+        relationshipManagers: [
+            {
+                name: 'Charlie Wilson (Incred)',
+                email: 'charlie.wilson@example-incred.com',
+                phoneNumber: '7654321098',
+                region: 'West'
+            },
+            {
+                name: 'Diana Lee (Incred)',
+                email: 'diana.lee@example-incred.com',
+                phoneNumber: '7654321097',
+                region: 'East'
+            }
+        ]
+    },
+    {
+        name: 'Auxilo',
+        relationshipManagers: [
+            {
+                name: 'Eve Davis (Auxilo)',
+                email: 'eve.davis@example-auxilo.com',
+                phoneNumber: '6543210987',
+                region: 'North'
+            },
+            {
+                name: 'Frank Miller (Auxilo)',
+                email: 'frank.miller@example-auxilo.com',
+                phoneNumber: '6543210986',
+                region: 'South'
+            }
+        ]
+    },
+    {
+        name: 'Tata Capital',
+        relationshipManagers: [
+            {
+                name: 'Grace Taylor (Tata Capital)',
+                email: 'grace.taylor@example-tatacapital.com',
+                phoneNumber: '5432109876',
+                region: 'West'
+            },
+            {
+                name: 'Henry Anderson (Tata Capital)',
+                email: 'henry.anderson@example-tatacapital.com',
+                phoneNumber: '5432109875',
+                region: 'East'
+            }
+        ]
+    },
+    {
+        name: 'ICICI',
         relationshipManagers: [
             {
                 name: 'Priya Singh (ICICI)',
-                email: 'priya.s@example-icici.com',
+                email: 'priya.singh@example-icici.com',
                 phoneNumber: '8765432109',
                 region: 'North'
             },
             {
                 name: 'Arjun Reddy (ICICI)',
-                email: 'arjun.r@example-icici.com',
+                email: 'arjun.reddy@example-icici.com',
                 phoneNumber: '8765432108',
                 region: 'South'
+            }
+        ]
+    },
+    {
+        name: 'Axis',
+        relationshipManagers: [
+            {
+                name: 'Vikram Batra (Axis)',
+                email: 'vikram.batra@example-axis.com',
+                phoneNumber: '9456789012',
+                region: 'North'
             },
             {
-                name: 'Anjali Mehta (ICICI)',
-                email: 'anjali.m@example-icici.com',
-                phoneNumber: '8765432107',
+                name: 'Lakshmi Menon (Axis)',
+                email: 'lakshmi.menon@example-axis.com',
+                phoneNumber: '9456789013',
+                region: 'South'
+            }
+        ]
+    },
+    {
+        name: 'IDFC',
+        relationshipManagers: [
+            {
+                name: 'Ivy Garcia (IDFC)',
+                email: 'ivy.garcia@example-idfc.com',
+                phoneNumber: '4321098765',
+                region: 'West'
+            },
+            {
+                name: 'Jack Martinez (IDFC)',
+                email: 'jack.martinez@example-idfc.com',
+                phoneNumber: '4321098764',
                 region: 'East'
             }
-        ],
-    },
-    {
-        name: 'State Bank of India',
-        relationshipManagers: [
-            { name: 'Sunil Gupta (SBI)', email: 'sunil.g@example-sbi.com', phoneNumber: '9123456780', region: 'North' },
-            { name: 'Meena Iyer (SBI)', email: 'meena.i@example-sbi.com', phoneNumber: '9123456781', region: 'South' },
-            { name: 'Vijay Chavan (SBI)', email: 'vijay.c@example-sbi.com', phoneNumber: '9123456782', region: 'West' },
-            { name: 'Deepak Das (SBI)', email: 'deepak.d@example-sbi.com', phoneNumber: '9123456783', region: 'East' },
         ]
     },
     {
-        name: 'Punjab National Bank',
+        name: 'Propelled',
         relationshipManagers: [
-            { name: 'Anita Verma (PNB)', email: 'anita.v@example-pnb.com', phoneNumber: '9234567890', region: 'North' },
-            { name: 'Rajesh Nair (PNB)', email: 'rajesh.n@example-pnb.com', phoneNumber: '9234567891', region: 'South' },
-            { name: 'Prakash Joshi (PNB)', email: 'prakash.j@example-pnb.com', phoneNumber: '9234567892', region: 'West' },
+            {
+                name: 'Karen Rodriguez (Propelled)',
+                email: 'karen.rodriguez@example-propelled.com',
+                phoneNumber: '3210987654',
+                region: 'North'
+            },
+            {
+                name: 'Leo Hernandez (Propelled)',
+                email: 'leo.hernandez@example-propelled.com',
+                phoneNumber: '3210987653',
+                region: 'South'
+            }
         ]
     },
     {
-        name: 'Bank of Baroda',
+        name: 'SBI',
         relationshipManagers: [
-            { name: 'Geeta Singh (BOB)', email: 'geeta.s@example-bob.com', phoneNumber: '9345678901', region: 'North' },
-            { name: 'Kumar Pillai (BOB)', email: 'kumar.p@example-bob.com', phoneNumber: '9345678902', region: 'South' },
-            { name: 'Sachin Desai (BOB)', email: 'sachin.d@example-bob.com', phoneNumber: '9345678903', region: 'West' },
+            {
+                name: 'Sunil Gupta (SBI)',
+                email: 'sunil.gupta@example-sbi.com',
+                phoneNumber: '9123456780',
+                region: 'North'
+            },
+            {
+                name: 'Meena Iyer (SBI)',
+                email: 'meena.iyer@example-sbi.com',
+                phoneNumber: '9123456781',
+                region: 'South'
+            }
         ]
     },
     {
-        name: 'Axis Bank',
+        name: 'UBI',
         relationshipManagers: [
-            { name: 'Vikram Batra (Axis)', email: 'vikram.b@example-axis.com', phoneNumber: '9456789012', region: 'North' },
-            { name: 'Lakshmi Menon (Axis)', email: 'lakshmi.m@example-axis.com', phoneNumber: '9456789013', region: 'South' },
-            { name: 'Sourav Bannerjee (Axis)', email: 'sourav.b@example-axis.com', phoneNumber: '9456789014', region: 'East' },
-        ]
-    },
-    {
-        name: 'Kotak Mahindra Bank',
-        relationshipManagers: [
-            { name: 'Neha Sharma (Kotak)', email: 'neha.s@example-kotak.com', phoneNumber: '9567890123', region: 'North' },
-            { name: 'Anand Krishnan (Kotak)', email: 'anand.k@example-kotak.com', phoneNumber: '9567890124', region: 'South' },
-            { name: 'Rohan Mehta (Kotak)', email: 'rohan.m@example-kotak.com', phoneNumber: '9567890125', region: 'West' },
-        ]
-    },
-    {
-        name: 'IndusInd Bank',
-        relationshipManagers: [
-            { name: 'Pooja Khanna (IndusInd)', email: 'pooja.k@example-indusind.com', phoneNumber: '9678901234', region: 'North' },
-            { name: 'Sanjay Rao (IndusInd)', email: 'sanjay.r@example-indusind.com', phoneNumber: '9678901235', region: 'West' },
-        ]
-    },
-    {
-        name: 'Yes Bank',
-        relationshipManagers: [
-            { name: 'Kavita Rao (Yes)', email: 'kavita.r@example-yes.com', phoneNumber: '9789012345', region: 'South' },
-            { name: 'Manish Agarwal (Yes)', email: 'manish.a@example-yes.com', phoneNumber: '9789012346', region: 'West' },
-        ]
-    },
-    {
-        name: 'Canara Bank',
-        relationshipManagers: [
-            { name: 'Alok Sharma (Canara)', email: 'alok.s@example-canara.com', phoneNumber: '9890123456', region: 'North' },
-            { name: 'Prakasham L (Canara)', email: 'prakasham.l@example-canara.com', phoneNumber: '9890123457', region: 'South' },
-        ]
-    },
-    {
-        name: 'Union Bank of India',
-        relationshipManagers: [
-            { name: 'Rajeshwari Singh (Union)', email: 'rajeshwari.s@example-union.com', phoneNumber: '9901234567', region: 'North' },
-            { name: 'Murali Krishna (Union)', email: 'murali.k@example-union.com', phoneNumber: '9901234568', region: 'South' },
-            { name: 'Iqbal Khan (Union)', email: 'iqbal.k@example-union.com', phoneNumber: '9901234569', region: 'West' },
+            {
+                name: 'Rajeshwari Singh (UBI)',
+                email: 'rajeshwari.singh@example-ubi.com',
+                phoneNumber: '9901234567',
+                region: 'North'
+            },
+            {
+                name: 'Murali Krishna (UBI)',
+                email: 'murali.krishna@example-ubi.com',
+                phoneNumber: '9901234568',
+                region: 'South'
+            }
         ]
     }
 ];

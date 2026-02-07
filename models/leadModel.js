@@ -83,10 +83,10 @@ const EmbeddedCallNoteSchema = new mongoose.Schema({
     },
     loggedByName: { type: String, required: true },
     notes: { type: String, required: true },
-    callStatus: { 
-        type: String, 
-        enum: ['Connected', 'Not Reached', 'Busy', 'Scheduled', 'Log'],
-        default: 'Connected' 
+    callStatus: {
+        type: String,
+        enum: ['Connected', 'Not Reached', 'Busy', 'Scheduled', 'Log', 'Counsellor Note', 'Quick Note'],
+        default: 'Connected'
     },
     nextCallDate: { type: Date }, // Optional reminder date set during the call
 }, { timestamps: true }); // Tracks when the note was created
@@ -98,6 +98,13 @@ const BankAssignmentSchema = new mongoose.Schema({
     assignedRMName: { type: String }, // Name of the assigned Relationship Manager
     assignedRMEmail: { type: String }, // Email of the assigned RM
     assignedAt: { type: Date, default: Date.now },
+    state: { type: String }, // State where the bank is assigned
+    status: { type: String, enum: ['ongoing', 'closed'], default: 'ongoing' }, // Assignment status
+    contactible: { type: Boolean, default: true }, // Whether the bank is contactible
+    applicationStatus: { type: String, default: '' }, // Application status text
+    lastCall: { type: Date }, // Last call date
+    nextCall: { type: Date }, // Next call date
+    crmId: { type: String, default: '' }, // CRM ID
 }, { _id: false });
 
 // --- NEW: Document Sub-Schema ---

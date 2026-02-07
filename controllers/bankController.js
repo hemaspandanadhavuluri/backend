@@ -1,5 +1,8 @@
 const Bank = require('../models/bankModel');
 
+// Import bank lists from constants
+const { publicBanksIndia, privateBanksIndia } = require('../../frontend/src/constants');
+
 /**
  * 1. GET /api/banks - Fetch all tied-up banks
  */
@@ -122,30 +125,7 @@ const allBanks = [
             }
         ]
     },
-    {
-        _id: 'bank_canara',
-        name: 'Canara Bank',
-        branches: [
-            {
-                branchName: 'Governorpet',
-                ifsc: 'CNRB0001234',
-                address: 'Governorpet',
-                city: 'Vijayawada',
-                district: 'Krishna',
-                state: 'Andhra Pradesh',
-                pincode: '520002'
-            },
-            {
-                branchName: 'Patamata',
-                ifsc: 'CNRB0005678',
-                address: 'Patamata',
-                city: 'Vijayawada',
-                district: 'Krishna',
-                state: 'Andhra Pradesh',
-                pincode: '520010'
-            }
-        ]
-    },
+   
     {
         _id: 'bank_union',
         name: 'Union Bank of India',
@@ -170,30 +150,7 @@ const allBanks = [
             }
         ]
     },
-    {
-        _id: 'bank_indian',
-        name: 'Indian Bank',
-        branches: [
-            {
-                branchName: 'Nellore Main',
-                ifsc: 'IDIB000N123',
-                address: 'Trunk Road, Nellore',
-                city: 'Nellore',
-                district: 'SPSR Nellore',
-                state: 'Andhra Pradesh',
-                pincode: '524001'
-            },
-            {
-                branchName: 'Kavali',
-                ifsc: 'IDIB000K456',
-                address: 'Kavali Town',
-                city: 'Kavali',
-                district: 'SPSR Nellore',
-                state: 'Andhra Pradesh',
-                pincode: '524201'
-            }
-        ]
-    }
+   
 ];
 
 
@@ -203,4 +160,39 @@ const allBanks = [
     );
 
     res.status(200).json(foundBanks);
+};
+
+/**
+ * 4. GET /api/banks/connected/:type - Fetch connected banks by type (public or private) with RMs
+ */
+exports.getConnectedBanksByType = async (req, res) => {
+    const { type } = req.params; // 'public' or 'private'
+
+    if (!['public', 'private'].includes(type)) {
+        return res.status(400).json({ message: 'Invalid type. Must be "public" or "private".' });
+    }
+
+    try {
+        const banks = await Bank.find({}).sort({ name: 1 });
+
+        // Filter banks based on type
+        const filteredBanks = banks.filter(bank => {
+            if (type === 'public') {
+                return publicBanksIndia.includes(bank.name);
+            } else if (type === 'private') {
+                return privateBanksIndia.includes(bank.name);
+            }
+            return false;
+        });
+
+        // Return banks with their RMs
+        const result = filteredBanks.map(bank => ({
+            name: bank.name,
+            relationshipManagers: bank.relationshipManagers
+        }));
+
+        res.status(200).json(result);
+    } catch (error) {
+        res.status(500).json({ message: 'Failed to fetch connected banks.', error: error.message });
+    }
 };

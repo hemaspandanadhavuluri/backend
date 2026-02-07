@@ -29,4 +29,7 @@ router.get('/assignable', userController.getAssignableUsers);
 router.get('/counsellors', userController.getCounsellors);
 router.post('/counsellors', userController.createCounsellor);
 
+// Route to get user by ID
+router.get('/:id', userController.getUserById);
+
 module.exports = router;

@@ -112,12 +112,14 @@ exports.createLead = async (req, res) => {
  */
 exports.getLeadById = async (req, res) => {
     const { id } = req.params;
-    const lead = await Lead.findById(id);
+    // Determine if id is _id or leadID
+    const query = mongoose.Types.ObjectId.isValid(id) ? { _id: id } : { leadID: id };
+    const lead = await Lead.findOne(query);
 
     if (!lead) {
         return res.status(404).json({ message: 'Lead not found.' });
     }
-    
+
     // For now, we are skipping the access control check for a single lead.
     // This can be re-added later with a proper authentication middleware.
     return res.status(200).json(lead);
@@ -130,7 +132,10 @@ exports.updateLead = async (req, res) => {
     const { id } = req.params;
     const updateData = req.body;
     console.log("updateData ", updateData);
-        
+
+    // Determine if id is _id or leadID
+    const query = mongoose.Types.ObjectId.isValid(id) ? { _id: id } : { leadID: id };
+
     // --- FIX: Separate atomic operators from direct updates ---
     const atomicOps = {};
 
@@ -139,7 +144,7 @@ exports.updateLead = async (req, res) => {
     // update from the form. This ensures we don't wipe it out.
     if (!updateData.source || !updateData.source.source) {
         try {
-            const existingLead = await Lead.findById(id).select('source').lean();
+            const existingLead = await Lead.findOne(query).select('source').lean();
             if (existingLead && existingLead.source) {
                 updateData.source = existingLead.source;
             }
@@ -149,7 +154,7 @@ exports.updateLead = async (req, res) => {
     // --- FIX: Handle new call notes ---
     // If a new note is part of the payload (sent as `newNote` from frontend), add it to the call history array.
     if (updateData.newNote && updateData.newNote.notes) {
-        // NOTE: The loggedById and loggedByName should come from `req.user` 
+        // NOTE: The loggedById and loggedByName should come from `req.user`
         // which is populated by an authentication middleware (e.g., JWT).
         const newNote = {
             loggedById: new mongoose.Types.ObjectId(updateData.newNote.loggedById),
@@ -164,7 +169,7 @@ exports.updateLead = async (req, res) => {
         updateData.lastCallDate = new Date(); // Also update lastCallDate to now
         delete updateData.newNote; // Clean up the temporary field
         // *** CRITICAL FIX: Prevent conflict by deleting the field from the main update object ***
-        delete updateData.callHistory; 
+        delete updateData.callHistory;
     }
 
     // --- FIX: Handle new EXTERNAL call notes from Bank Executives ---
@@ -172,7 +177,7 @@ exports.updateLead = async (req, res) => {
         const newNote = {
             // For bank executives, we don't have a persistent user ID, so we create a new one.
             // The important part is `loggedByName`.
-            loggedById: new mongoose.Types.ObjectId(), 
+            loggedById: new mongoose.Types.ObjectId(),
             loggedByName: updateData.externalCallNote.loggedByName || 'Bank Executive',
             notes: updateData.externalCallNote.notes,
             callStatus: 'Log' // External notes are just logs
@@ -186,15 +191,15 @@ exports.updateLead = async (req, res) => {
 
     // Perform the main lead update
     try {
-        const updatedLead = await Lead.findByIdAndUpdate(
-            id,
+        const updatedLead = await Lead.findOneAndUpdate(
+            query,
             { ...atomicOps, $set: updateData },
             { new: true, runValidators: true }
         );
         if (!updatedLead) {
             return res.status(404).json({ message: 'Lead not found.' });
         }
-        
+
         // For now, we'll assume the user has access. Access control can be added here later.
         return res.status(200).json(updatedLead);
 
@@ -209,14 +214,16 @@ exports.updateLead = async (req, res) => {
  */
 exports.assignToBank = async (req, res) => {
     const { id } = req.params;
-    const { bankId, bankName, assignedRMName, assignedRMEmail } = req.body;
+    const { bankId, bankName, assignedRMName, assignedRMEmail, state } = req.body;
 
-    if (!bankId || !bankName || !assignedRMName || !assignedRMEmail) {
-        return res.status(400).json({ message: 'Bank ID, Bank Name, and RM details are required.' });
+    if (!bankId || !bankName || !assignedRMName || !assignedRMEmail || !state) {
+        return res.status(400).json({ message: 'Bank ID, Bank Name, RM details, and State are required.' });
     }
 
     try {
-        const lead = await Lead.findById(id);
+        // Determine if id is _id or leadID
+        const query = mongoose.Types.ObjectId.isValid(id) ? { _id: id } : { leadID: id };
+        const lead = await Lead.findOne(query);
         if (!lead) {
             return res.status(404).json({ message: 'Lead not found.' });
         }
@@ -225,11 +232,18 @@ exports.assignToBank = async (req, res) => {
             return res.status(409).json({ message: `Lead already assigned to ${bankName}.` });
         }
 
-        lead.assignedBanks.push({ 
-            bankId, 
+        lead.assignedBanks.push({
+            bankId,
             bankName,
             assignedRMName: assignedRMName,
-            assignedRMEmail: assignedRMEmail
+            assignedRMEmail: assignedRMEmail,
+            state: state,
+            status: 'ongoing', // Default to ongoing
+            contactible: true, // Default to contactible
+            applicationStatus: '', // Empty initially
+            lastCall: null,
+            nextCall: null,
+            crmId: ''
         });
         const updatedLead = await lead.save();
         res.status(200).json({ lead: updatedLead, message: `Lead assigned to ${assignedRMName} at ${bankName}.` });
@@ -253,7 +267,9 @@ exports.uploadDocument = async (req, res) => {
     }
 
     try {
-        const lead = await Lead.findById(id);
+        // Determine if id is _id or leadID
+        const query = mongoose.Types.ObjectId.isValid(id) ? { _id: id } : { leadID: id };
+        const lead = await Lead.findOne(query);
         if (!lead) {
             return res.status(404).json({ message: 'Lead not found.' });
         }
@@ -283,7 +299,9 @@ exports.sendDocumentLink = async (req, res) => {
     const { id } = req.params;
 
     try {
-        const lead = await Lead.findById(id);
+        // Determine if id is _id or leadID
+        const query = mongoose.Types.ObjectId.isValid(id) ? { _id: id } : { leadID: id };
+        const lead = await Lead.findOne(query);
         if (!lead) {
             return res.status(404).json({ message: 'Lead not found.' });
         }
@@ -314,7 +332,9 @@ exports.sendTemplateEmail = async (req, res) => {
     }
 
     try {
-        const lead = await Lead.findById(id).select('email fullName');
+        // Determine if id is _id or leadID
+        const query = mongoose.Types.ObjectId.isValid(id) ? { _id: id } : { leadID: id };
+        const lead = await Lead.findOne(query).select('email fullName');
         if (!lead) {
             return res.status(404).json({ message: 'Lead not found.' });
         }

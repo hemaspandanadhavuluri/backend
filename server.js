@@ -7,8 +7,10 @@ const path = require('path');
 const leadRoutes = require('./routes/leadRoutes'); // Corrected path
 const userRoutes = require('./routes/userRoutes');
 const bankRoutes = require('./routes/bankRoutes');
+const bankComparisonRoutes = require('./routes/bankComparisonRoutes');
 const emailService = require('./services/emailService');
 const taskRoutes = require('./routes/taskRoutes'); // Import task routes
+const emiRoutes = require('./routes/emiRoutes'); // Import EMI routes
 
 dotenv.config();
 
@@ -49,8 +51,11 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/api/leads', leadRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/banks', bankRoutes);
+app.use('/api/bank-comparisons', bankComparisonRoutes);
 app.use('/api/tasks', taskRoutes); // Add task routes
+app.use('/api/emi', emiRoutes); // Add EMI routes
 
+//
 // Basic health check route
 app.get('/', (req, res) => {
     res.send('Lead Management API is running...');
