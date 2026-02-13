@@ -29,6 +29,10 @@ router.get('/assignable', userController.getAssignableUsers);
 router.get('/counsellors', userController.getCounsellors);
 router.post('/counsellors', userController.createCounsellor);
 
+// Routes for bank executives
+router.get('/bank-executives', userController.getBankExecutives);
+router.post('/bank-executives', userController.createBankExecutive);
+
 // Route to get user by ID
 router.get('/:id', userController.getUserById);
 
