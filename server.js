@@ -7,14 +7,16 @@ const path = require('path');
 const leadRoutes = require('./routes/leadRoutes'); // Corrected path
 const userRoutes = require('./routes/userRoutes');
 const bankRoutes = require('./routes/bankRoutes');
+const bankComparisonRoutes = require('./routes/bankComparisonRoutes');
 const emailService = require('./services/emailService');
 const taskRoutes = require('./routes/taskRoutes'); // Import task routes
+const emiRoutes = require('./routes/emiRoutes'); // Import EMI routes
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://13.48.131.69:27017/leadmanagementdb';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/leadmanagementdb';
 
 // Database Connection
 mongoose.connect(MONGODB_URI)
@@ -32,7 +34,7 @@ mongoose.connection.once('open', () => {
 });
 
 const corsOptions = {
-    origin: 'http://13.48.131.69',
+    origin: 'http://localhost:3000',
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
     optionsSuccessStatus: 204
@@ -49,8 +51,11 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/api/leads', leadRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/banks', bankRoutes);
+app.use('/api/bank-comparisons', bankComparisonRoutes);
 app.use('/api/tasks', taskRoutes); // Add task routes
+app.use('/api/emi', emiRoutes); // Add EMI routes
 
+//
 // Basic health check route
 app.get('/', (req, res) => {
     res.send('Lead Management API is running...');

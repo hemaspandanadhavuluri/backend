@@ -24,7 +24,7 @@ const UserSchema = new mongoose.Schema({
     // Role for Access Control
     role: {
         type: String,
-        enum: ['CEO', 'ZonalHead', 'RegionalHead', 'FO', 'HR', 'BankExecutive'],
+        enum: ['CEO', 'ZonalHead', 'RegionalHead', 'FO', 'HR', 'BankExecutive', 'Counsellor'],
         required: true
     },
 
@@ -33,6 +33,8 @@ const UserSchema = new mongoose.Schema({
     region: { type: String, index: true },
     // NEW: Field to associate a user with a bank
     bank: { type: String, index: true },
+    // NEW: Field for counsellors
+    consultancy: { type: String },
 
     // Reporting Hierarchy
     reporting_hr: { type: String },

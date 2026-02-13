@@ -1,6 +1,7 @@
 // src/controllers/userController.js
 const User = require('../models/userModel');
 const Bank = require('../models/bankModel'); // Import the Bank model
+const Lead = require('../models/leadModel'); // Import the Lead model
 // const bcrypt = require('bcryptjs'); // Needed for real-world password hashing
 const mongoose = require('mongoose');
 const multer = require('multer');
@@ -250,7 +251,8 @@ exports.verifyOTP = async (req, res) => {
             role: userDetails.role,
             zone: userDetails.zone,
             region: userDetails.region,
-            bank: userDetails.bank
+            bank: userDetails.bank,
+            consultancy: userDetails.consultancy // Include consultancy for counsellors
         };
 
         res.status(200).json({
@@ -310,5 +312,154 @@ exports.getAssignableUsers = async (req, res) => {
     } catch (error) {
         console.error('Error fetching assignable users:', error);
         res.status(500).json({ message: 'Server error fetching assignable users.' });
+    }
+};
+
+/**
+ * Fetches all counsellors with lead count.
+ * @route GET /api/users/counsellors
+ */
+exports.getCounsellors = async (req, res) => {
+    try {
+        const counsellors = await User.find({ role: 'Counsellor' }).select('_id fullName email consultancy');
+        const counsellorsWithCount = await Promise.all(counsellors.map(async (counsellor) => {
+            const leadCount = await Lead.countDocuments({ counsellorId: counsellor._id });
+            return { ...counsellor.toObject(), leadCount };
+        }));
+        res.status(200).json(counsellorsWithCount);
+    } catch (error) {
+        console.error('Error fetching counsellors:', error);
+        res.status(500).json({ message: 'Server error fetching counsellors.' });
+    }
+};
+
+/**
+ * Creates a new counsellor.
+ * @route POST /api/users/counsellors
+ */
+exports.createCounsellor = async (req, res) => {
+    const { consultancy, fullName, email } = req.body;
+    if (!consultancy || !fullName || !email) {
+        return res.status(400).json({ message: 'Consultancy, full name, and email are required.' });
+    }
+    try {
+        const userExists = await User.findOne({ email });
+        if (userExists) {
+            return res.status(409).json({ message: 'User with that email already exists.' });
+        }
+        const counsellor = await User.create({
+            fullName,
+            email,
+            password: 'defaultpassword',
+            role: 'Counsellor',
+            consultancy
+        });
+        res.status(201).json(counsellor);
+    } catch (error) {
+        console.error('Error creating counsellor:', error);
+        res.status(500).json({ message: 'Server error creating counsellor.' });
+    }
+};
+
+/**
+ * Fetches all bank executives from the Bank model.
+ * @route GET /api/users/bank-executives
+ */
+exports.getBankExecutives = async (req, res) => {
+    try {
+        const banks = await Bank.find({}).select('_id name relationshipManagers');
+        
+        // Transform the data to flatten the structure
+        const bankExecutives = [];
+        banks.forEach(bank => {
+            bank.relationshipManagers.forEach(rm => {
+                bankExecutives.push({
+                    _id: `${bank._id}-${rm.email}`, // Create a unique ID
+                    bankName: bank.name,
+                    name: rm.name,
+                    email: rm.email,
+                    phoneNumber: rm.phoneNumber,
+                    region: rm.region,
+                    branch: rm.branch,
+                    empId: rm.empId
+                });
+            });
+        });
+        
+        res.status(200).json(bankExecutives);
+    } catch (error) {
+        console.error('Error fetching bank executives:', error);
+        res.status(500).json({ message: 'Server error fetching bank executives.' });
+    }
+};
+
+/**
+ * Creates a new bank executive in the Bank model.
+ * @route POST /api/users/bank-executives
+ */
+exports.createBankExecutive = async (req, res) => {
+    const { bankName, fullName, email, phoneNumber, region, branch, empId } = req.body;
+    
+    if (!bankName || !fullName || !email || !phoneNumber || !region) {
+        return res.status(400).json({ message: 'Bank name, full name, email, phone number, and region are required.' });
+    }
+    
+    try {
+        // Find the bank
+        const bank = await Bank.findOne({ name: bankName });
+        
+        if (!bank) {
+            return res.status(404).json({ message: 'Bank not found. Please select a valid bank.' });
+        }
+        
+        // Check if the email already exists as a relationship manager
+        const existingRM = bank.relationshipManagers.find(rm => rm.email === email);
+        if (existingRM) {
+            return res.status(409).json({ message: 'A bank executive with this email already exists.' });
+        }
+        
+        // Add the new relationship manager
+        bank.relationshipManagers.push({
+            name: fullName,
+            email: email,
+            phoneNumber: phoneNumber,
+            region: region,
+            branch: branch || '',
+            empId: empId || ''
+        });
+        
+        await bank.save();
+        
+        res.status(201).json({
+            message: 'Bank executive added successfully.',
+            bankName: bank.name,
+            name: fullName,
+            email: email,
+            phoneNumber: phoneNumber,
+            region: region,
+            branch: branch || '',
+            empId: empId || ''
+        });
+    } catch (error) {
+        console.error('Error creating bank executive:', error);
+        res.status(500).json({ message: 'Server error creating bank executive.' });
+    }
+};
+
+/**
+ * Fetches a user by ID.
+ * @route GET /api/users/:id
+ */
+exports.getUserById = async (req, res) => {
+    const { id } = req.params;
+    try {
+        const user = await User.findById(id).select('-password'); // Exclude password
+        if (!user) {
+            return res.status(404).json({ message: 'User not found.' });
+        }
+        res.status(200).json(user);
+    } catch (error) {
+        console.error('Error fetching user:', error);
+        res.status(500).json({ message: 'Server error fetching user.' });
     }
 };

@@ -113,12 +113,14 @@ exports.createLead = async (req, res) => {
  */
 exports.getLeadById = async (req, res) => {
     const { id } = req.params;
-    const lead = await Lead.findById(id);
+    // Determine if id is _id or leadID
+    const query = mongoose.Types.ObjectId.isValid(id) ? { _id: id } : { leadID: id };
+    const lead = await Lead.findOne(query);
 
     if (!lead) {
         return res.status(404).json({ message: 'Lead not found.' });
     }
-    
+
     // For now, we are skipping the access control check for a single lead.
     // This can be re-added later with a proper authentication middleware.
     return res.status(200).json(lead);
@@ -131,7 +133,10 @@ exports.updateLead = async (req, res) => {
     const { id } = req.params;
     const updateData = req.body;
     console.log("updateData ", updateData);
-        
+
+    // Determine if id is _id or leadID
+    const query = mongoose.Types.ObjectId.isValid(id) ? { _id: id } : { leadID: id };
+
     // --- FIX: Separate atomic operators from direct updates ---
     const atomicOps = {};
 
@@ -140,7 +145,7 @@ exports.updateLead = async (req, res) => {
     // update from the form. This ensures we don't wipe it out.
     if (!updateData.source || !updateData.source.source) {
         try {
-            const existingLead = await Lead.findById(id).select('source').lean();
+            const existingLead = await Lead.findOne(query).select('source').lean();
             if (existingLead && existingLead.source) {
                 updateData.source = existingLead.source;
             }
@@ -150,7 +155,7 @@ exports.updateLead = async (req, res) => {
     // --- FIX: Handle new call notes ---
     // If a new note is part of the payload (sent as `newNote` from frontend), add it to the call history array.
     if (updateData.newNote && updateData.newNote.notes) {
-        // NOTE: The loggedById and loggedByName should come from `req.user` 
+        // NOTE: The loggedById and loggedByName should come from `req.user`
         // which is populated by an authentication middleware (e.g., JWT).
         const newNote = {
             loggedById: new mongoose.Types.ObjectId(updateData.newNote.loggedById),
@@ -165,7 +170,7 @@ exports.updateLead = async (req, res) => {
         updateData.lastCallDate = new Date(); // Also update lastCallDate to now
         delete updateData.newNote; // Clean up the temporary field
         // *** CRITICAL FIX: Prevent conflict by deleting the field from the main update object ***
-        delete updateData.callHistory; 
+        delete updateData.callHistory;
     }
 
     // --- FIX: Handle new EXTERNAL call notes from Bank Executives ---
@@ -173,7 +178,7 @@ exports.updateLead = async (req, res) => {
         const newNote = {
             // For bank executives, we don't have a persistent user ID, so we create a new one.
             // The important part is `loggedByName`.
-            loggedById: new mongoose.Types.ObjectId(), 
+            loggedById: new mongoose.Types.ObjectId(),
             loggedByName: updateData.externalCallNote.loggedByName || 'Bank Executive',
             notes: updateData.externalCallNote.notes,
             callStatus: 'Log' // External notes are just logs
@@ -187,15 +192,15 @@ exports.updateLead = async (req, res) => {
 
     // Perform the main lead update
     try {
-        const updatedLead = await Lead.findByIdAndUpdate(
-            id,
+        const updatedLead = await Lead.findOneAndUpdate(
+            query,
             { ...atomicOps, $set: updateData },
             { new: true, runValidators: true }
         );
         if (!updatedLead) {
             return res.status(404).json({ message: 'Lead not found.' });
         }
-        
+
         // For now, we'll assume the user has access. Access control can be added here later.
         return res.status(200).json(updatedLead);
 
@@ -210,14 +215,16 @@ exports.updateLead = async (req, res) => {
  */
 exports.assignToBank = async (req, res) => {
     const { id } = req.params;
-    const { bankId, bankName, assignedRMName, assignedRMEmail } = req.body;
+    const { bankId, bankName, assignedRMName, assignedRMEmail, state } = req.body;
 
-    if (!bankId || !bankName || !assignedRMName || !assignedRMEmail) {
-        return res.status(400).json({ message: 'Bank ID, Bank Name, and RM details are required.' });
+    if (!bankId || !bankName || !assignedRMName || !assignedRMEmail || !state) {
+        return res.status(400).json({ message: 'Bank ID, Bank Name, RM details, and State are required.' });
     }
 
     try {
-        const lead = await Lead.findById(id);
+        // Determine if id is _id or leadID
+        const query = mongoose.Types.ObjectId.isValid(id) ? { _id: id } : { leadID: id };
+        const lead = await Lead.findOne(query);
         if (!lead) {
             return res.status(404).json({ message: 'Lead not found.' });
         }
@@ -226,11 +233,18 @@ exports.assignToBank = async (req, res) => {
             return res.status(409).json({ message: `Lead already assigned to ${bankName}.` });
         }
 
-        lead.assignedBanks.push({ 
-            bankId, 
+        lead.assignedBanks.push({
+            bankId,
             bankName,
             assignedRMName: assignedRMName,
-            assignedRMEmail: assignedRMEmail
+            assignedRMEmail: assignedRMEmail,
+            state: state,
+            status: 'ongoing', // Default to ongoing
+            contactible: true, // Default to contactible
+            applicationStatus: '', // Empty initially
+            lastCall: null,
+            nextCall: null,
+            crmId: ''
         });
         const updatedLead = await lead.save();
         res.status(200).json({ lead: updatedLead, message: `Lead assigned to ${assignedRMName} at ${bankName}.` });
@@ -254,7 +268,9 @@ exports.uploadDocument = async (req, res) => {
     }
 
     try {
-        const lead = await Lead.findById(id);
+        // Determine if id is _id or leadID
+        const query = mongoose.Types.ObjectId.isValid(id) ? { _id: id } : { leadID: id };
+        const lead = await Lead.findOne(query);
         if (!lead) {
             return res.status(404).json({ message: 'Lead not found.' });
         }
@@ -284,7 +300,9 @@ exports.sendDocumentLink = async (req, res) => {
     const { id } = req.params;
 
     try {
-        const lead = await Lead.findById(id);
+        // Determine if id is _id or leadID
+        const query = mongoose.Types.ObjectId.isValid(id) ? { _id: id } : { leadID: id };
+        const lead = await Lead.findOne(query);
         if (!lead) {
             return res.status(404).json({ message: 'Lead not found.' });
         }
@@ -372,7 +390,9 @@ exports.sendTemplateEmail = async (req, res) => {
     }
 
     try {
-        const lead = await Lead.findById(id).select('email fullName');
+        // Determine if id is _id or leadID
+        const query = mongoose.Types.ObjectId.isValid(id) ? { _id: id } : { leadID: id };
+        const lead = await Lead.findOne(query).select('email fullName');
         if (!lead) {
             return res.status(404).json({ message: 'Lead not found.' });
         }
@@ -385,5 +405,241 @@ exports.sendTemplateEmail = async (req, res) => {
     } catch (error) {
         console.error('Failed to send template email:', error);
         res.status(500).json({ message: 'Failed to send email.', error: error.message });
+    }
+};
+
+/**
+ * 9. GET /api/leads/stats/:counsellorId - Get stats for a counsellor
+ */
+exports.getCounsellorStats = async (req, res) => {
+    const { counsellorId } = req.params;
+
+    try {
+        // Build query filter - handles both string and ObjectId formats
+        const baseFilter = {
+            $or: [
+                { counsellorId: counsellorId },
+                { counsellorId: new mongoose.Types.ObjectId(counsellorId) }
+            ]
+        };
+        
+        const totalLeads = await Lead.countDocuments(baseFilter);
+        const inProgress = await Lead.countDocuments({ ...baseFilter, leadStatus: 'In Progress' });
+        const sanctioned = await Lead.countDocuments({ ...baseFilter, leadStatus: 'Sanctioned' });
+        const rejected = await Lead.countDocuments({ ...baseFilter, leadStatus: 'Close' });
+
+        res.status(200).json({ totalLeads, inProgress, sanctioned, rejected });
+    } catch (error) {
+        console.error('Error fetching counsellor stats:', error);
+        res.status(500).json({ message: 'Error fetching stats', error });
+    }
+};
+
+/**
+ * 10. GET /api/leads/recent/:counsellorId - Get recent submissions for a counsellor
+ */
+exports.getRecentSubmissionsForCounsellor = async (req, res) => {
+    const { counsellorId } = req.params;
+
+    try {
+        // Build query filter - handles both string and ObjectId formats
+        const filter = {
+            $or: [
+                { counsellorId: counsellorId },
+                { counsellorId: new mongoose.Types.ObjectId(counsellorId) }
+            ]
+        };
+        
+        const recentLeads = await Lead.find(filter)
+            .sort({ createdAt: -1 })
+            .limit(5)
+            .select('fullName loanAmountRequired interestedCountries leadStatus createdAt');
+
+        res.status(200).json(recentLeads);
+    } catch (error) {
+        console.error('Error fetching recent submissions:', error);
+        res.status(500).json({ message: 'Error fetching recent submissions', error });
+    }
+};
+
+/**
+ * 11. GET /api/leads/counsellor/:counsellorId - Get all leads for a counsellor with computed status
+ * Status Logic:
+ * - If leadStatus is 'Close', display as 'closed'
+ * - If leadStatus is 'Sanctioned', display as 'sanctioned'
+ * - If callHistory has recent activity (last 24 hours), display as 'in-progress'
+ * - Otherwise, display as 'under-review'
+ */
+exports.getCounsellorLeads = async (req, res) => {
+    const { counsellorId } = req.params;
+
+    try {
+        // Build query filter - handles both string and ObjectId formats
+        const filter = {
+            $or: [
+                { counsellorId: counsellorId },
+                { counsellorId: new mongoose.Types.ObjectId(counsellorId) }
+            ]
+        };
+
+        const leads = await Lead.find(filter)
+            .sort({ createdAt: -1 })
+            .lean();
+
+        // Compute status for each lead based on business logic
+        const leadsWithComputedStatus = leads.map(lead => {
+            let displayStatus = 'under-review'; // default
+
+            // Rule 1: If closed in FO panel
+            if (lead.leadStatus === 'Close') {
+                displayStatus = 'closed';
+            }
+            // Rule 2: If sanctioned
+            else if (lead.leadStatus === 'Sanctioned') {
+                displayStatus = 'sanctioned';
+            }
+            // Rule 3: If there's recent activity in call history (last 24 hours)
+            else if (lead.callHistory && lead.callHistory.length > 0) {
+                const lastCallTime = new Date(lead.callHistory[lead.callHistory.length - 1].createdAt);
+                const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+                if (lastCallTime > twentyFourHoursAgo) {
+                    displayStatus = 'in-progress';
+                } else {
+                    // Old activity, show as under-review
+                    displayStatus = 'under-review';
+                }
+            }
+
+            // Calculate progress percentage
+            let progress = 10; // Default for new leads
+            if (displayStatus === 'closed') progress = 20;
+            else if (displayStatus === 'under-review') progress = 45;
+            else if (displayStatus === 'in-progress') progress = 70;
+            else if (displayStatus === 'sanctioned') progress = 100;
+
+            return {
+                _id: lead._id,
+                id: lead.leadID,
+                name: lead.fullName,
+                amount: lead.loanAmountRequired ? `₹${lead.loanAmountRequired.toLocaleString('en-IN')}` : '₹0',
+                country: lead.interestedCountries && lead.interestedCountries.length > 0 ? lead.interestedCountries[0] : 'N/A',
+                status: displayStatus,
+                submittedDate: new Date(lead.createdAt).toLocaleDateString('en-GB', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric'
+                }),
+                lastUpdated: new Date(lead.updatedAt).toLocaleDateString('en-GB', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric'
+                }),
+                progress: progress,
+                phone: lead.mobileNumbers && lead.mobileNumbers.length > 0 ? lead.mobileNumbers[0] : 'N/A',
+                email: lead.email || 'N/A',
+                city: lead.permanentLocation || 'N/A',
+                citizenship: 'Indian', // Can be extended based on actual data
+                lender: lead.approachedBanks && lead.approachedBanks.length > 0 ? lead.approachedBanks[0].bankName : 'N/A',
+                university: lead.admittedUniversities && lead.admittedUniversities.length > 0 ? lead.admittedUniversities[0] : 'N/A',
+                course: lead.degree || 'N/A',
+                intake: lead.courseStartMonth && lead.courseStartYear ? `${lead.courseStartMonth} ${lead.courseStartYear}` : 'N/A'
+            };
+        });
+
+        res.status(200).json(leadsWithComputedStatus);
+    } catch (error) {
+        console.error('Error fetching counsellor leads:', error);
+        res.status(500).json({ message: 'Error fetching counsellor leads', error });
+    }
+};
+
+/**
+ * 12. GET /api/leads/messages/:counsellorId - Get all messages/notes for a counsellor's leads
+ */
+exports.getCounsellorMessages = async (req, res) => {
+    const { counsellorId } = req.params;
+
+    try {
+        // Build query filter - handles both string and ObjectId formats
+        const filter = {
+            $or: [
+                { counsellorId: counsellorId },
+                { counsellorId: new mongoose.Types.ObjectId(counsellorId) }
+            ]
+        };
+
+        // Fetch leads with callHistory and externalCallHistory
+        const leads = await Lead.find(filter)
+            .select('leadID fullName callHistory externalCallHistory counsellorName')
+            .sort({ updatedAt: -1 })
+            .lean();
+
+        // Collect all messages from all leads
+        const allMessages = [];
+        const recentLeads = [];
+
+        leads.forEach(lead => {
+            // Add to recent leads list
+            recentLeads.push({
+                id: lead.leadID,
+                name: lead.fullName,
+                initial: lead.fullName.split(' ').map(n => n[0]).join('').toUpperCase(),
+                active: false // Will be set based on selected lead
+            });
+
+            // Process internal call history
+            if (lead.callHistory && lead.callHistory.length > 0) {
+                lead.callHistory.forEach(note => {
+                    allMessages.push({
+                        id: note._id,
+                        leadId: lead.leadID,
+                        leadName: lead.fullName,
+                        sender: note.loggedByName,
+                        message: note.notes,
+                        timestamp: note.createdAt,
+                        type: 'internal', // counsellor or FO notes
+                        callStatus: note.callStatus
+                    });
+                });
+            }
+
+            // Process external call history (from bank executives)
+            if (lead.externalCallHistory && lead.externalCallHistory.length > 0) {
+                lead.externalCallHistory.forEach(note => {
+                    allMessages.push({
+                        id: note._id,
+                        leadId: lead.leadID,
+                        leadName: lead.fullName,
+                        sender: note.loggedByName,
+                        message: note.notes,
+                        timestamp: note.createdAt,
+                        type: 'external', // bank executive notes
+                        callStatus: note.callStatus
+                    });
+                });
+            }
+        });
+
+        // Sort messages by timestamp (newest first)
+        allMessages.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+        // Group messages by date for timeline display
+        const groupedMessages = {};
+        allMessages.forEach(msg => {
+            const date = new Date(msg.timestamp).toDateString();
+            if (!groupedMessages[date]) {
+                groupedMessages[date] = [];
+            }
+            groupedMessages[date].push(msg);
+        });
+
+        res.status(200).json({
+            recentLeads: recentLeads.slice(0, 5), // Limit to 5 recent leads
+            messages: groupedMessages,
+            counsellorName: leads.length > 0 ? leads[0].counsellorName : 'Counsellor'
+        });
+    } catch (error) {
+        console.error('Error fetching counsellor messages:', error);
+        res.status(500).json({ message: 'Error fetching counsellor messages', error });
     }
 };
