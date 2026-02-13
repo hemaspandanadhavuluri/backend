@@ -34,7 +34,7 @@ mongoose.connection.once('open', () => {
 });
 
 const corsOptions = {
-    origin: 'http://13.48.131.69',
+    origin: 'https://justtapcapital.com',
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
     optionsSuccessStatus: 204
