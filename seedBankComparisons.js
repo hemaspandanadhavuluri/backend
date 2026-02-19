@@ -4,7 +4,7 @@ const BankComparison = require('./models/bankComparisonModel');
 
 dotenv.config();
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/leadmanagementdb';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://16.112.180.35:27017/leadmanagementdb';
 
 const bankComparisonsToSeed = [
     {
