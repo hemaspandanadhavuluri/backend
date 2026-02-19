@@ -10,7 +10,9 @@ const RMSchema = new mongoose.Schema({
         required: true, 
         // Example regions: 'North', 'South', 'East', 'West'
         index: true 
-    }
+    },
+    branch: { type: String },
+    empId: { type: String }
 }, { _id: false });
 
 const BankSchema = new mongoose.Schema({

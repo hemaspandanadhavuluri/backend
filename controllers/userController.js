@@ -362,6 +362,91 @@ exports.createCounsellor = async (req, res) => {
 };
 
 /**
+ * Fetches all bank executives from the Bank model.
+ * @route GET /api/users/bank-executives
+ */
+exports.getBankExecutives = async (req, res) => {
+    try {
+        const banks = await Bank.find({}).select('_id name relationshipManagers');
+        
+        // Transform the data to flatten the structure
+        const bankExecutives = [];
+        banks.forEach(bank => {
+            bank.relationshipManagers.forEach(rm => {
+                bankExecutives.push({
+                    _id: `${bank._id}-${rm.email}`, // Create a unique ID
+                    bankName: bank.name,
+                    name: rm.name,
+                    email: rm.email,
+                    phoneNumber: rm.phoneNumber,
+                    region: rm.region,
+                    branch: rm.branch,
+                    empId: rm.empId
+                });
+            });
+        });
+        
+        res.status(200).json(bankExecutives);
+    } catch (error) {
+        console.error('Error fetching bank executives:', error);
+        res.status(500).json({ message: 'Server error fetching bank executives.' });
+    }
+};
+
+/**
+ * Creates a new bank executive in the Bank model.
+ * @route POST /api/users/bank-executives
+ */
+exports.createBankExecutive = async (req, res) => {
+    const { bankName, fullName, email, phoneNumber, region, branch, empId } = req.body;
+    
+    if (!bankName || !fullName || !email || !phoneNumber || !region) {
+        return res.status(400).json({ message: 'Bank name, full name, email, phone number, and region are required.' });
+    }
+    
+    try {
+        // Find the bank
+        const bank = await Bank.findOne({ name: bankName });
+        
+        if (!bank) {
+            return res.status(404).json({ message: 'Bank not found. Please select a valid bank.' });
+        }
+        
+        // Check if the email already exists as a relationship manager
+        const existingRM = bank.relationshipManagers.find(rm => rm.email === email);
+        if (existingRM) {
+            return res.status(409).json({ message: 'A bank executive with this email already exists.' });
+        }
+        
+        // Add the new relationship manager
+        bank.relationshipManagers.push({
+            name: fullName,
+            email: email,
+            phoneNumber: phoneNumber,
+            region: region,
+            branch: branch || '',
+            empId: empId || ''
+        });
+        
+        await bank.save();
+        
+        res.status(201).json({
+            message: 'Bank executive added successfully.',
+            bankName: bank.name,
+            name: fullName,
+            email: email,
+            phoneNumber: phoneNumber,
+            region: region,
+            branch: branch || '',
+            empId: empId || ''
+        });
+    } catch (error) {
+        console.error('Error creating bank executive:', error);
+        res.status(500).json({ message: 'Server error creating bank executive.' });
+    }
+};
+
+/**
  * Fetches a user by ID.
  * @route GET /api/users/:id
  */
