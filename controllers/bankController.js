@@ -1,7 +1,7 @@
 const Bank = require('../models/bankModel');
 
 // Import bank lists from constants
-export const publicBanksIndia = [
+ const publicBanksIndia = [
     'State Bank of India',
     'Punjab National Bank',
     'Bank of Baroda',
@@ -16,7 +16,7 @@ export const publicBanksIndia = [
     'Indian Overseas Bank'
 ];
 
-export const privateBanksIndia = [
+ const privateBanksIndia = [
     'HDFC Bank',
     'ICICI Bank',
     'Axis Bank',
