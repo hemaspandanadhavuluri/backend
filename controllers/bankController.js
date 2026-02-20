@@ -1,7 +1,63 @@
 const Bank = require('../models/bankModel');
 
 // Import bank lists from constants
-const { publicBanksIndia, privateBanksIndia } = require('../../frontend/src/constants');
+ const publicBanksIndia = [
+    'State Bank of India',
+    'Punjab National Bank',
+    'Bank of Baroda',
+    'Canara Bank',
+    'Union Bank of India',
+    'Bank of India',
+    'Indian Bank',
+    'Central Bank of India',
+    'UCO Bank',
+    'Bank of Maharashtra',
+    'Punjab & Sind Bank',
+    'Indian Overseas Bank'
+];
+
+ const privateBanksIndia = [
+    'HDFC Bank',
+    'ICICI Bank',
+    'Axis Bank',
+    'Kotak Mahindra Bank',
+    'IndusInd Bank',
+    'Yes Bank',
+    'Federal Bank',
+    'IDFC First Bank',
+    'Bandhan Bank',
+    'RBL Bank',
+    'South Indian Bank',
+    'City Union Bank',
+    'Karur Vysya Bank',
+    'Tamilnad Mercantile Bank',
+    'Karnataka Bank',
+    'Nainital Bank',
+    'Dhanlaxmi Bank',
+    'Jammu & Kashmir Bank',
+    'Saraswat Cooperative Bank',
+    'Abhyudaya Cooperative Bank',
+    'Bharat Cooperative Bank',
+    'Catholic Syrian Bank',
+    'DCB Bank',
+    'ESAF Small Finance Bank',
+    'Equitas Small Finance Bank',
+    'Fincare Small Finance Bank',
+    'Jana Small Finance Bank',
+    'North East Small Finance Bank',
+    'Shivalik Small Finance Bank',
+    'Suryoday Small Finance Bank',
+    'Ujjivan Small Finance Bank',
+    'Utkarsh Small Finance Bank',
+    'AU Small Finance Bank',
+    'Capital Small Finance Bank',
+    'FINO Payments Bank',
+    'India Post Payments Bank',
+    'Jio Payments Bank',
+    'NSDL Payments Bank',
+    'Paytm Payments Bank',
+    'Airtel Payments Bank'
+];
 
 /**
  * 1. GET /api/banks - Fetch all tied-up banks

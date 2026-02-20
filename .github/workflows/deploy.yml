@@ -42,12 +42,13 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             cd /home/${{ secrets.EC2_USER }}/app
-
-            echo "Stopping old containers..."
-            docker-compose -f docker-compose.prod.yml down --remove-orphans
-
-            echo "Pulling latest backend image..."
-            docker-compose -f docker-compose.prod.yml pull backend
-
-            echo "Starting updated backend..."
-            docker-compose -f docker-compose.prod.yml up -d
+            
+            echo "Pulling latest images..."
+            docker compose -f docker-compose.prod.yml pull
+            
+            echo "Restarting services..."
+            # Using 'up -d' will automatically stop/restart changed containers
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans
+            
+            echo "Cleaning up..."
+            docker image prune -f
