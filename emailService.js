@@ -13,7 +13,7 @@ const transporter = nodemailer.createTransport({
 });
 
 async function sendDocumentUploadEmail(studentEmail, studentName, leadId) {
-    const uploadLink = `http://16.112.180.35/leads/${leadId}/documents`;
+    const uploadLink = `https://justtapcapital.com/leads/${leadId}/documents`;
 
     const mailOptions = {
         from: '"Justap Educational Loans" <support@justap.com>',
