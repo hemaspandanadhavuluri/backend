@@ -1,64 +1,5 @@
 const Bank = require('../models/bankModel');
 
-// Import bank lists from constants
- const publicBanksIndia = [
-    'State Bank of India',
-    'Punjab National Bank',
-    'Bank of Baroda',
-    'Canara Bank',
-    'Union Bank of India',
-    'Bank of India',
-    'Indian Bank',
-    'Central Bank of India',
-    'UCO Bank',
-    'Bank of Maharashtra',
-    'Punjab & Sind Bank',
-    'Indian Overseas Bank'
-];
-
- const privateBanksIndia = [
-    'HDFC Bank',
-    'ICICI Bank',
-    'Axis Bank',
-    'Kotak Mahindra Bank',
-    'IndusInd Bank',
-    'Yes Bank',
-    'Federal Bank',
-    'IDFC First Bank',
-    'Bandhan Bank',
-    'RBL Bank',
-    'South Indian Bank',
-    'City Union Bank',
-    'Karur Vysya Bank',
-    'Tamilnad Mercantile Bank',
-    'Karnataka Bank',
-    'Nainital Bank',
-    'Dhanlaxmi Bank',
-    'Jammu & Kashmir Bank',
-    'Saraswat Cooperative Bank',
-    'Abhyudaya Cooperative Bank',
-    'Bharat Cooperative Bank',
-    'Catholic Syrian Bank',
-    'DCB Bank',
-    'ESAF Small Finance Bank',
-    'Equitas Small Finance Bank',
-    'Fincare Small Finance Bank',
-    'Jana Small Finance Bank',
-    'North East Small Finance Bank',
-    'Shivalik Small Finance Bank',
-    'Suryoday Small Finance Bank',
-    'Ujjivan Small Finance Bank',
-    'Utkarsh Small Finance Bank',
-    'AU Small Finance Bank',
-    'Capital Small Finance Bank',
-    'FINO Payments Bank',
-    'India Post Payments Bank',
-    'Jio Payments Bank',
-    'NSDL Payments Bank',
-    'Paytm Payments Bank',
-    'Airtel Payments Bank'
-];
-
 /**
  * 1. GET /api/banks - Fetch all tied-up banks
  */
@@ -92,130 +33,35 @@ exports.getBanksForUniversity = async (req, res) => {
  * 3. GET /api/banks/search-by-pincode - Search for banks by pincode
  */
 exports.searchBanksByPincode = async (req, res) => {
-    // --- USING DUMMY DATA AS REQUESTED ---
-    const { pincode } = req.query; // e.g., "522005" or "500081"
+    const { pincode } = req.query;
 
     if (!pincode) {
         return res.status(400).json({ message: 'Pincode is required for search.' });
     }
 
-const allBanks = [
-    {
-        _id: 'bank_sbi',
-        name: 'State Bank of India',
-        branches: [
-            {
-                branchName: 'Guntur Main Branch',
-                ifsc: 'SBIN0000843',
-                address: 'Brodipet, Guntur',
-                city: 'Guntur',
-                district: 'Guntur',
-                state: 'Andhra Pradesh',
-                pincode: '522002'
-            },
-            {
-                branchName: 'Lakshmipuram',
-                ifsc: 'SBIN0011234',
-                address: 'Lakshmipuram Main Road',
-                city: 'Guntur',
-                district: 'Guntur',
-                state: 'Andhra Pradesh',
-                pincode: '522007'
-            },
-            {
-                branchName: 'Arundelpet',
-                ifsc: 'SBIN0014567',
-                address: 'Arundelpet 5th Lane',
-                city: 'Guntur',
-                district: 'Guntur',
-                state: 'Andhra Pradesh',
-                pincode: '522005'
+    try {
+        // Fetch all banks from database
+        const banks = await Bank.find({}).lean();
+        
+        // Transform banks to include relationship managers as "executives"
+        const formattedBanks = banks.map(bank => ({
+            _id: bank._id,
+            name: bank.name,
+            type: bank.type,
+            relationshipManagers: bank.relationshipManagers || [],
+            // Also include a flag to indicate if bank has RMs for this pincode
+            hasRMForRegion: (region) => {
+                return bank.relationshipManagers?.some(rm => rm.region === region) || false;
             }
-        ]
-    },
-    {
-        _id: 'bank_pnb',
-        name: 'Punjab National Bank',
-        branches: [
-            {
-                branchName: 'Arundelpet',
-                ifsc: 'PUNB0123400',
-                address: 'Arundelpet, Guntur',
-                city: 'Guntur',
-                district: 'Guntur',
-                state: 'Andhra Pradesh',
-                pincode: '522005'
-            },
-            {
-                branchName: 'Brodipet',
-                ifsc: 'PUNB0456700',
-                address: 'Brodipet Main Road',
-                city: 'Guntur',
-                district: 'Guntur',
-                state: 'Andhra Pradesh',
-                pincode: '522002'
-            }
-        ]
-    },
-    {
-        _id: 'bank_bob',
-        name: 'Bank of Baroda',
-        branches: [
-            {
-                branchName: 'Vijayawada Main',
-                ifsc: 'BARB0VJAYAW',
-                address: 'M.G. Road, Vijayawada',
-                city: 'Vijayawada',
-                district: 'Krishna',
-                state: 'Andhra Pradesh',
-                pincode: '520010'
-            },
-            {
-                branchName: 'Benz Circle',
-                ifsc: 'BARB0BENZXX',
-                address: 'Benz Circle',
-                city: 'Vijayawada',
-                district: 'Krishna',
-                state: 'Andhra Pradesh',
-                pincode: '520008'
-            }
-        ]
-    },
-   
-    {
-        _id: 'bank_union',
-        name: 'Union Bank of India',
-        branches: [
-            {
-                branchName: 'Dwaraka Nagar',
-                ifsc: 'UBIN0532100',
-                address: 'Dwaraka Nagar',
-                city: 'Visakhapatnam',
-                district: 'Visakhapatnam',
-                state: 'Andhra Pradesh',
-                pincode: '530016'
-            },
-            {
-                branchName: 'Madhurawada',
-                ifsc: 'UBIN0578900',
-                address: 'Madhurawada',
-                city: 'Visakhapatnam',
-                district: 'Visakhapatnam',
-                state: 'Andhra Pradesh',
-                pincode: '530048'
-            }
-        ]
-    },
-   
-];
+        }));
 
-
-    // Filter the banks to find ones that have a branch with the matching pincode
-    const foundBanks = allBanks.filter(bank =>
-        bank.branches.some(branch => branch.pincode === pincode)
-    );
-
-    res.status(200).json(foundBanks);
+        // Since we don't have branch-level data with pincodes in the current model,
+        // we'll return all banks with their RMs for the user to choose from
+        // The filtering by pincode can be done on the frontend based on RM regions
+        res.status(200).json(formattedBanks);
+    } catch (error) {
+        res.status(500).json({ message: 'Failed to search banks.', error: error.message });
+    }
 };
 
 /**
@@ -229,26 +75,329 @@ exports.getConnectedBanksByType = async (req, res) => {
     }
 
     try {
-        const banks = await Bank.find({}).sort({ name: 1 });
-
-        // Filter banks based on type
-        const filteredBanks = banks.filter(bank => {
-            if (type === 'public') {
-                return publicBanksIndia.includes(bank.name);
-            } else if (type === 'private') {
-                return privateBanksIndia.includes(bank.name);
-            }
-            return false;
-        });
+        // Filter banks based on type field in database
+        const banks = await Bank.find({ type: type }).sort({ name: 1 });
 
         // Return banks with their RMs
-        const result = filteredBanks.map(bank => ({
+        const result = banks.map(bank => ({
+            _id: bank._id,
             name: bank.name,
+            type: bank.type,
             relationshipManagers: bank.relationshipManagers
         }));
 
         res.status(200).json(result);
     } catch (error) {
         res.status(500).json({ message: 'Failed to fetch connected banks.', error: error.message });
+    }
+};
+
+/**
+ * 5. POST /api/banks - Create a new bank
+ */
+exports.createBank = async (req, res) => {
+    const { name, type, relationshipManagers } = req.body;
+
+    // Log the incoming request for debugging
+    console.log('createBank request body:', req.body);
+
+    if (!name || !name.trim()) {
+        return res.status(400).json({ message: 'Bank name is required.' });
+    }
+
+    // Validate and normalize the type
+    const validTypes = ['public', 'private', 'nbfc'];
+    const normalizedType = type ? type.toString().toLowerCase().trim() : 'public';
+    
+    if (type && !validTypes.includes(normalizedType)) {
+        return res.status(400).json({ 
+            message: `Invalid bank type. Must be one of: ${validTypes.join(', ')}` 
+        });
+    }
+
+    const trimmedName = name.trim();
+    const bankData = {
+        name: trimmedName,
+        type: normalizedType,
+        relationshipManagers: relationshipManagers || []
+    };
+
+    console.log('Bank data to save:', bankData);
+
+    try {
+        // Use findOneAndDelete followed by create to handle race conditions
+        // First, try to delete any existing bank with this name (soft delete approach)
+        // Then create fresh - this avoids unique index conflicts
+        
+        // Alternative: Use insertMany with ordered: false to bypass duplicate check
+        // But first let's just try a simple save with explicit handling
+        
+        // Check if bank exists
+        const existingBank = await Bank.findOne({ name: trimmedName });
+        
+        if (existingBank) {
+            return res.status(400).json({ 
+                message: `Bank "${trimmedName}" already exists. Please use a different name.` 
+            });
+        }
+
+        // Create and save the new bank
+        const newBank = new Bank(bankData);
+        await newBank.save();
+        
+        console.log('Bank saved successfully:', newBank);
+        res.status(201).json(newBank);
+        
+    } catch (error) {
+        // Log the full error for debugging
+        console.error('Error creating bank:', error);
+        console.error('Error code:', error.code);
+        console.error('Error name:', error.name);
+        console.error('Error message:', error.message);
+
+        // Check for duplicate key error (code 11000)
+        if (error.code === 11000) {
+            // Parse which field caused the duplicate
+            const duplicateField = error.message.includes('name') ? 'name' : 'unknown';
+            return res.status(400).json({ 
+                message: `A bank with this ${duplicateField} already exists. Please use a different ${duplicateField}.` 
+            });
+        } 
+        
+        // Handle Mongoose validation errors
+        if (error.name === 'ValidationError') {
+            const validationMessages = Object.values(error.errors).map(err => err.message).join(', ');
+            return res.status(400).json({ message: `Validation error: ${validationMessages}` });
+        }
+        
+        // Handle CastError (invalid ObjectId, etc)
+        if (error.name === 'CastError') {
+            return res.status(400).json({ message: `Invalid data format: ${error.message}` });
+        }
+        
+        // Generic server error
+        res.status(500).json({ message: 'Failed to create bank.', error: error.message });
+    }
+};
+
+/**
+ * 6. PUT /api/banks/:id - Update a bank
+ */
+exports.updateBank = async (req, res) => {
+    const { id } = req.params;
+    const { name, type, relationshipManagers } = req.body;
+
+    try {
+        const updatedBank = await Bank.findByIdAndUpdate(
+            id,
+            { name, type, relationshipManagers },
+            { new: true, runValidators: true }
+        );
+
+        if (!updatedBank) {
+            return res.status(404).json({ message: 'Bank not found.' });
+        }
+
+        res.status(200).json(updatedBank);
+    } catch (error) {
+        res.status(500).json({ message: 'Failed to update bank.', error: error.message });
+    }
+};
+
+/**
+ * 7. DELETE /api/banks/:id - Delete a bank
+ */
+exports.deleteBank = async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const deletedBank = await Bank.findByIdAndDelete(id);
+
+        if (!deletedBank) {
+            return res.status(404).json({ message: 'Bank not found.' });
+        }
+
+        res.status(200).json({ message: 'Bank deleted successfully.' });
+    } catch (error) {
+        res.status(500).json({ message: 'Failed to delete bank.', error: error.message });
+    }
+};
+
+/**
+ * 8. POST /api/banks/:id/rm - Add a Relationship Manager to a bank
+ */
+exports.addRelationshipManager = async (req, res) => {
+    const { id } = req.params;
+    const { name, email, phoneNumber, region, branch, empId } = req.body;
+
+    if (!name || !email || !phoneNumber || !region) {
+        return res.status(400).json({ message: 'Name, email, phone number, and region are required.' });
+    }
+
+    try {
+        const bank = await Bank.findById(id);
+        if (!bank) {
+            return res.status(404).json({ message: 'Bank not found.' });
+        }
+
+        // Check if email already exists in any bank's relationship managers
+        const existingBankWithEmail = await Bank.findOne({
+            'relationshipManagers.email': email
+        });
+
+        if (existingBankWithEmail) {
+            return res.status(400).json({ 
+                message: `A Relationship Manager with email "${email}" already exists.` 
+            });
+        }
+
+        // Check if phoneNumber already exists in any bank's relationship managers
+        const existingBankWithPhone = await Bank.findOne({
+            'relationshipManagers.phoneNumber': phoneNumber
+        });
+
+        if (existingBankWithPhone) {
+            return res.status(400).json({ 
+                message: `A Relationship Manager with phone number "${phoneNumber}" already exists.` 
+            });
+        }
+
+        // Also check if phoneNumber already exists within this specific bank
+        const phoneExistsInThisBank = bank.relationshipManagers.some(
+            rm => rm.phoneNumber === phoneNumber
+        );
+
+        if (phoneExistsInThisBank) {
+            return res.status(400).json({ 
+                message: `A Relationship Manager with phone number "${phoneNumber}" already exists in this bank.` 
+            });
+        }
+
+        // Also check if email already exists within this specific bank
+        const emailExistsInThisBank = bank.relationshipManagers.some(
+            rm => rm.email === email
+        );
+
+        if (emailExistsInThisBank) {
+            return res.status(400).json({ 
+                message: `A Relationship Manager with email "${email}" already exists in this bank.` 
+            });
+        }
+
+        // Check if empId already exists in any bank's relationship managers (if empId is provided)
+        if (empId) {
+            const existingBankWithEmpId = await Bank.findOne({
+                'relationshipManagers.empId': empId
+            });
+
+            if (existingBankWithEmpId) {
+                return res.status(400).json({ 
+                    message: `A Relationship Manager with employee ID "${empId}" already exists.` 
+                });
+            }
+
+            // Also check within this specific bank
+            const empIdExistsInThisBank = bank.relationshipManagers.some(
+                rm => rm.empId === empId
+            );
+
+            if (empIdExistsInThisBank) {
+                return res.status(400).json({ 
+                    message: `A Relationship Manager with employee ID "${empId}" already exists in this bank.` 
+                });
+            }
+        }
+
+        // Check if email and phoneNumber are the same
+        if (email === phoneNumber) {
+            return res.status(400).json({ 
+                message: 'Email and phone number cannot be the same.' 
+            });
+        }
+
+        const newRM = { name, email, phoneNumber, region, branch: branch || '', empId: empId || '' };
+        bank.relationshipManagers.push(newRM);
+        await bank.save();
+
+        res.status(201).json({ message: 'Relationship Manager added successfully.', bank });
+    } catch (error) {
+        // Check for duplicate key error (code 11000) from database unique index
+        if (error.code === 11000) {
+            if (error.message.includes('email')) {
+                return res.status(400).json({ 
+                    message: `A Relationship Manager with email "${email}" already exists.` 
+                });
+            }
+            if (error.message.includes('phoneNumber')) {
+                return res.status(400).json({ 
+                    message: `A Relationship Manager with phone number "${phoneNumber}" already exists.` 
+                });
+            }
+            return res.status(400).json({ 
+                message: 'A Relationship Manager with this email or phone number already exists.' 
+            });
+        }
+        res.status(500).json({ message: 'Failed to add Relationship Manager.', error: error.message });
+    }
+};
+
+/**
+ * 9. PUT /api/banks/:id/rm/:rmId - Update a Relationship Manager
+ */
+exports.updateRelationshipManager = async (req, res) => {
+    const { id, rmId } = req.params;
+    const { name, email, phoneNumber, region, branch, empId } = req.body;
+
+    try {
+        const bank = await Bank.findById(id);
+        if (!bank) {
+            return res.status(404).json({ message: 'Bank not found.' });
+        }
+
+        const rmIndex = bank.relationshipManagers.findIndex(rm => rm._id.toString() === rmId);
+        if (rmIndex === -1) {
+            return res.status(404).json({ message: 'Relationship Manager not found.' });
+        }
+
+        bank.relationshipManagers[rmIndex] = {
+            ...bank.relationshipManagers[rmIndex].toObject(),
+            name: name || bank.relationshipManagers[rmIndex].name,
+            email: email || bank.relationshipManagers[rmIndex].email,
+            phoneNumber: phoneNumber || bank.relationshipManagers[rmIndex].phoneNumber,
+            region: region || bank.relationshipManagers[rmIndex].region,
+            branch: branch !== undefined ? branch : bank.relationshipManagers[rmIndex].branch,
+            empId: empId !== undefined ? empId : bank.relationshipManagers[rmIndex].empId
+        };
+
+        await bank.save();
+        res.status(200).json({ message: 'Relationship Manager updated successfully.', bank });
+    } catch (error) {
+        res.status(500).json({ message: 'Failed to update Relationship Manager.', error: error.message });
+    }
+};
+
+/**
+ * 10. DELETE /api/banks/:id/rm/:rmId - Delete a Relationship Manager
+ */
+exports.deleteRelationshipManager = async (req, res) => {
+    const { id, rmId } = req.params;
+
+    try {
+        const bank = await Bank.findById(id);
+        if (!bank) {
+            return res.status(404).json({ message: 'Bank not found.' });
+        }
+
+        const rmIndex = bank.relationshipManagers.findIndex(rm => rm._id.toString() === rmId);
+        if (rmIndex === -1) {
+            return res.status(404).json({ message: 'Relationship Manager not found.' });
+        }
+
+        bank.relationshipManagers.splice(rmIndex, 1);
+        await bank.save();
+
+        res.status(200).json({ message: 'Relationship Manager deleted successfully.', bank });
+    } catch (error) {
+        res.status(500).json({ message: 'Failed to delete Relationship Manager.', error: error.message });
     }
 };
