@@ -1,3 +1,4 @@
+
 // src/controllers/userController.js
 const User = require('../models/userModel');
 const Bank = require('../models/bankModel'); // Import the Bank model
@@ -72,8 +73,8 @@ exports.registerUser = async (req, res) => {
             panFilePath: panUpload,
             profilePictureUrl: profileUpload,
             role,
-            zone: ['ZonalHead', 'RegionalHead', 'FO'].includes(role) ? zone : undefined,
-            region: ['RegionalHead', 'FO'].includes(role) ? region : undefined,
+            zone: ['ZonalHead', 'RegionalHead', 'FO', 'Assigner'].includes(role) ? zone : undefined,
+            region: ['RegionalHead', 'FO', 'Assigner'].includes(role) ? region : undefined,
             reporting_hr,
             reporting_fo,
             reporting_zonalHead,
@@ -155,8 +156,12 @@ exports.sendOTP = async (req, res) => {
                     _id: new mongoose.Types.ObjectId(), // Temporary ID for the process
                     fullName: rm.name,
                     email: rm.email,
+                    phoneNumber: rm.phoneNumber,
                     role: 'BankExecutive',
-                    bank: bank.name
+                    bank: bank.name,
+                    state: rm.region,
+                    branch: rm.branch,
+                    employeeId: rm.empId
                 };
                 user = userDetailsForOtp; // Use this object for sending OTP
             }
@@ -252,7 +257,11 @@ exports.verifyOTP = async (req, res) => {
             zone: userDetails.zone,
             region: userDetails.region,
             bank: userDetails.bank,
-            consultancy: userDetails.consultancy // Include consultancy for counsellors
+            consultancy: userDetails.consultancy, // Include consultancy for counsellors
+            // Include bank executive specific fields
+            state: userDetails.state,
+            branch: userDetails.branch,
+            employeeId: userDetails.employeeId
         };
 
         res.status(200).json({
@@ -358,6 +367,22 @@ exports.createCounsellor = async (req, res) => {
     } catch (error) {
         console.error('Error creating counsellor:', error);
         res.status(500).json({ message: 'Server error creating counsellor.' });
+    }
+};
+
+/**
+ * Fetches assignable roles from the User model schema.
+ * @route GET /api/users/roles
+ */
+exports.getRoles = (req, res) => {
+    try {
+        const allRoles = User.schema.path('role').enumValues;
+        // Filter out 'CEO' as it's typically a unique top-level role
+        const assignableRoles = allRoles.filter(role => role !== 'CEO');
+        res.status(200).json(assignableRoles);
+    } catch (error) {
+        console.error('Error fetching roles:', error);
+        res.status(500).json({ message: 'Server error fetching roles.' });
     }
 };
 

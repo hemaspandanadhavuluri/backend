@@ -19,6 +19,9 @@ router.post('/verify-otp', userController.verifyOTP);
 // New route to get all unique regions
 router.get('/regions', userController.getRegions);
 
+// Route to get available roles
+router.get('/roles', userController.getRoles);
+
  // Route to get FOs, optionally by region
 router.get('/fos', userController.getFieldOfficers);
 

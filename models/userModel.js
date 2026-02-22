@@ -24,7 +24,7 @@ const UserSchema = new mongoose.Schema({
     // Role for Access Control
     role: {
         type: String,
-        enum: ['CEO', 'ZonalHead', 'RegionalHead', 'FO', 'HR', 'BankExecutive', 'Counsellor'],
+        enum: ['CEO', 'ZonalHead', 'RegionalHead', 'FO', 'HR', 'BankExecutive', 'Counsellor', 'Assigner'],
         required: true
     },
 

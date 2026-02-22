@@ -20,6 +20,9 @@ router.get('/stats/:counsellorId', leadController.getCounsellorStats); // NEW: G
 router.get('/recent/:counsellorId', leadController.getRecentSubmissionsForCounsellor); // NEW: Get recent submissions for counsellor
 router.post('/:id/send-document-otp', leadController.sendDocumentAccessOtp); // NEW: Send OTP for doc access
 router.post('/:id/verify-document-otp', leadController.verifyDocumentAccessOtp); // NEW: Verify OTP for doc access
+router.post('/:id/wrong-update', leadController.reportWrongUpdate); // NEW: Report wrong update
+router.put('/:id/notifications/:notificationId/read', leadController.markNotificationAsRead); // NEW: Mark notification as read
+router.post('/:id/notify-bank', leadController.notifyBank); // NEW: Notify bank (Contact ASAP / Negotiate)
 
 
 module.exports = router;

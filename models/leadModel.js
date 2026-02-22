@@ -91,6 +91,18 @@ const EmbeddedCallNoteSchema = new mongoose.Schema({
     nextCallDate: { type: Date }, // Optional reminder date set during the call
 }, { timestamps: true }); // Tracks when the note was created
 
+// --- NEW: Notification Sub-Schema ---
+const NotificationSchema = new mongoose.Schema({
+    type: { type: String }, // e.g., 'Wrong Update'
+    subType: { type: String },
+    message: { type: String },
+    createdAt: { type: Date, default: Date.now },
+    isRead: { type: Boolean, default: false },
+    fromRole: { type: String },
+    fromName: { type: String }
+}, { _id: true });
+
+
 // --- NEW: Bank Assignment Sub-Schema ---
 const BankAssignmentSchema = new mongoose.Schema({
     bankId: { type: mongoose.Schema.Types.ObjectId, ref: 'Bank', required: true },
@@ -99,12 +111,22 @@ const BankAssignmentSchema = new mongoose.Schema({
     assignedRMEmail: { type: String }, // Email of the assigned RM
     assignedAt: { type: Date, default: Date.now },
     state: { type: String }, // State where the bank is assigned
-    status: { type: String, enum: ['ongoing', 'closed'], default: 'ongoing' }, // Assignment status
+    bankLeadStatus: { type: String, default: 'In Progress' }, // Assignment status
     contactible: { type: Boolean, default: true }, // Whether the bank is contactible
-    applicationStatus: { type: String, default: '' }, // Application status text
-    lastCall: { type: Date }, // Last call date
-    nextCall: { type: Date }, // Next call date
+    bankApplicationStatus: { type: String, default: '' }, // Application status text
+    bankSubStatus: { type: String, default: '' }, // NEW: Sub-status for detailed tracking
+    bankAppId: { type: String, default: '' }, // NEW: Application ID entered by Bank Executive
+    bankLastCallDate: { type: Date }, // Last call date
+    bankNextCallDate: { type: Date }, // Next call date
     crmId: { type: String, default: '' }, // CRM ID
+    bankReminders: [{
+        date: { type: Date, required: true },
+        done: { type: Boolean, default: false },
+        createdAt: { type: Date, default: Date.now },
+        status: { type: String, default: 'No status' }
+    }],
+    // NEW: Notifications for this bank assignment
+    notifications: { type: [NotificationSchema], default: [] }
 }, { _id: false });
 
 // --- NEW: Document Sub-Schema ---
@@ -254,7 +276,7 @@ const LeadSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now },
     status: { type: String, default: 'No status' }
   }],
-  leadStatus: { type: String, enum: ['No status', 'Sanctioned', 'Close', 'In Progress', 'New', 'On Priority', 'Application Incomplete'], default: 'New' },
+  leadStatus: { type: String, enum: ['No status', 'Sanctioned', 'Close', 'In Progress', 'New', 'On Priority', 'Application Incomplete', 'Logged In', 'Rejected', 'Disbursed', 'Closed'], default: 'New' },
   priorityReason: { type: String }, // NEW: Reason for being a priority
   closeReason: { type: String }, // NEW: Reason for closing the lead
   targetSanctionDate: { type: Date }, // This field will store the future target date

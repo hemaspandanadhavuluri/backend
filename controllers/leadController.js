@@ -60,7 +60,13 @@ exports.getAllLeads = async (req, res) => {
                 { email: searchRegex },
                 { mobileNumbers: searchRegex },
                 { 'source.source': searchRegex },
-                { 'source.name': searchRegex }
+                { 'source.name': searchRegex },
+                { 'assignedBanks.bankName': searchRegex },
+                { 'assignedBanks.assignedRMName': searchRegex },
+                { 'callHistory.loggedByName': searchRegex },
+                { 'callHistory.notes': searchRegex },
+                { 'externalCallHistory.loggedByName': searchRegex },
+                { 'externalCallHistory.notes': searchRegex }
             ]
         };
         filter = { ...filter, ...searchFilter }; // Combine role filter with search filter
@@ -181,7 +187,7 @@ exports.updateLead = async (req, res) => {
             loggedById: new mongoose.Types.ObjectId(),
             loggedByName: updateData.externalCallNote.loggedByName || 'Bank Executive',
             notes: updateData.externalCallNote.notes,
-            callStatus: 'Log' // External notes are just logs
+            callStatus: updateData.externalCallNote.callStatus || 'Log' // Allow status override
         };
         // Use $push to add to the externalCallHistory array
         if (!atomicOps.$push) atomicOps.$push = {};
@@ -239,11 +245,14 @@ exports.assignToBank = async (req, res) => {
             assignedRMName: assignedRMName,
             assignedRMEmail: assignedRMEmail,
             state: state,
-            status: 'ongoing', // Default to ongoing
+            bankLeadStatus: 'In Progress', // Default to In Progress
             contactible: true, // Default to contactible
-            applicationStatus: '', // Empty initially
-            lastCall: null,
-            nextCall: null,
+            bankApplicationStatus: '', // Empty initially
+            bankSubStatus: '',
+            bankAppId: '',
+            bankLastCallDate: null,
+            bankNextCallDate: null,
+            bankReminders: [],
             crmId: ''
         });
         const updatedLead = await lead.save();
@@ -641,5 +650,154 @@ exports.getCounsellorMessages = async (req, res) => {
     } catch (error) {
         console.error('Error fetching counsellor messages:', error);
         res.status(500).json({ message: 'Error fetching counsellor messages', error });
+    }
+};
+
+/**
+ * 13. POST /api/leads/:id/wrong-update - Report a wrong update from a bank
+ */
+exports.reportWrongUpdate = async (req, res) => {
+    const { id } = req.params;
+    const { bankId, issueType, subType, notes } = req.body;
+
+    // Assuming req.user is populated by auth middleware, otherwise use a default or passed in body
+    // For this implementation, we'll assume the frontend sends necessary 'from' details or we use defaults
+    const fromName = req.body.fromName || 'Field Officer';
+    const fromRole = req.body.fromRole || 'FO';
+
+    if (!bankId || !issueType || !subType) {
+        return res.status(400).json({ message: 'Bank ID, Issue Type, and Sub Type are required.' });
+    }
+
+    try {
+        const query = mongoose.Types.ObjectId.isValid(id) ? { _id: id } : { leadID: id };
+        const lead = await Lead.findOne(query);
+
+        if (!lead) {
+            return res.status(404).json({ message: 'Lead not found.' });
+        }
+
+        // Find the specific bank assignment
+        const bankAssignment = lead.assignedBanks.find(b => b.bankId.toString() === bankId);
+
+        if (!bankAssignment) {
+            return res.status(404).json({ message: 'Bank assignment not found for this lead.' });
+        }
+
+        // 1. Add to Notifications
+        const notification = {
+            type: 'Wrong Update',
+            subType: `${issueType} - ${subType}`,
+            message: notes || 'No additional notes.',
+            fromRole: fromRole,
+            fromName: fromName,
+            createdAt: new Date()
+        };
+        bankAssignment.notifications.push(notification);
+
+        // 2. Add to External Call History (so it shows in Bank Panel Notes)
+        const historyNote = {
+            loggedById: new mongoose.Types.ObjectId(), // Generate a new ID if we don't have the FO's ID handy
+            loggedByName: `${fromName} (${fromRole})`,
+            notes: `[Wrong Update Reported] Type: ${issueType}, Sub-Type: ${subType}. Note: ${notes}`,
+            callStatus: 'Log',
+            createdAt: new Date()
+        };
+        lead.externalCallHistory.push(historyNote);
+
+        await lead.save();
+
+        res.status(200).json({ message: 'Wrong update reported and notification sent to bank.', lead });
+
+    } catch (error) {
+        console.error('Error reporting wrong update:', error);
+        res.status(500).json({ message: 'Failed to report wrong update.', error: error.message });
+    }
+};
+
+/**
+ * 14. PUT /api/leads/:id/notifications/:notificationId/read - Mark notification as read
+ */
+exports.markNotificationAsRead = async (req, res) => {
+    const { id, notificationId } = req.params;
+    const { bankName } = req.body; // We need to know which bank's notification to mark
+
+    try {
+        const lead = await Lead.findById(id);
+        if (!lead) {
+            return res.status(404).json({ message: 'Lead not found.' });
+        }
+
+        const bank = lead.assignedBanks.find(b => b.bankName === bankName);
+        const notification = bank?.notifications.id(notificationId);
+
+        if (!notification) {
+            return res.status(404).json({ message: 'Notification not found.' });
+        }
+
+        notification.isRead = true;
+        await lead.save();
+        res.status(200).json({ success: true });
+    } catch (error) {
+        console.error('Error marking notification as read:', error);
+        res.status(500).json({ message: 'Failed to mark notification as read.', error: error.message });
+    }
+};
+
+/**
+ * 15. POST /api/leads/:id/notify-bank - Send Contact ASAP or Negotiate notification to bank
+ */
+exports.notifyBank = async (req, res) => {
+    const { id } = req.params;
+    const { bankId, type, subType, notes } = req.body;
+    // Assuming fromName/fromRole are passed from frontend, or default to FO
+    const fromName = req.body.fromName || 'Field Officer';
+    const fromRole = req.body.fromRole || 'FO';
+
+    if (!bankId || !type || !subType) {
+        return res.status(400).json({ message: 'Bank ID, Type, and Sub Type are required.' });
+    }
+
+    try {
+        const query = mongoose.Types.ObjectId.isValid(id) ? { _id: id } : { leadID: id };
+        const lead = await Lead.findOne(query);
+
+        if (!lead) return res.status(404).json({ message: 'Lead not found.' });
+
+        const bankAssignment = lead.assignedBanks.find(b => b.bankId.toString() === bankId);
+        if (!bankAssignment) return res.status(404).json({ message: 'Bank assignment not found.' });
+
+        // Ensure externalCallHistory exists
+        if (!lead.externalCallHistory) {
+            lead.externalCallHistory = [];
+        }
+
+        // 1. Add Notification
+        const notification = {
+            type, // 'Contact ASAP' or 'Negotiate'
+            subType,
+            message: notes || '',
+            fromRole,
+            fromName,
+            createdAt: new Date(),
+            isRead: false
+        };
+        bankAssignment.notifications.push(notification);
+
+        // 2. Add to External Call History (so it appears in Bank Panel notes & FO history)
+        const historyNote = {
+            loggedById: new mongoose.Types.ObjectId(), // Placeholder ID
+            loggedByName: `${fromName} (${fromRole})`,
+            notes: `[Notification] ${type}: ${subType}. ${notes ? `Note: ${notes}` : ''}`,
+            callStatus: 'Log',
+            createdAt: new Date()
+        };
+        lead.externalCallHistory.push(historyNote);
+
+        await lead.save();
+        res.status(200).json({ message: 'Notification sent to bank.', lead });
+    } catch (error) {
+        console.error('Error notifying bank:', error);
+        res.status(500).json({ message: 'Failed to notify bank.', error: error.message });
     }
 };
