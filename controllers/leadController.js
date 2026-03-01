@@ -2,6 +2,7 @@
 const Lead = require('../models/leadModel');
 const emailService = require('../services/emailService'); // Corrected path
 const mongoose = require('mongoose');
+const User = require('../models/userModel');
 
 const otpStore = {}; // In-memory store for OTPs. In production, use Redis or a database.
 // Helper to generate a unique Lead ID (e.g., a simple counter or UUID/timestamp based)
@@ -658,12 +659,11 @@ exports.getCounsellorMessages = async (req, res) => {
  */
 exports.reportWrongUpdate = async (req, res) => {
     const { id } = req.params;
-    const { bankId, issueType, subType, notes } = req.body;
+    const { bankId, issueType, subType, notes, fromName, fromRole, createdById, createdByName } = req.body;
 
-    // Assuming req.user is populated by auth middleware, otherwise use a default or passed in body
-    // For this implementation, we'll assume the frontend sends necessary 'from' details or we use defaults
-    const fromName = req.body.fromName || 'Field Officer';
-    const fromRole = req.body.fromRole || 'FO';
+    // Use provided names/roles or fallback
+    const reporterName = fromName || 'Field Officer';
+    const reporterRole = fromRole || 'FO';
 
     if (!bankId || !issueType || !subType) {
         return res.status(400).json({ message: 'Bank ID, Issue Type, and Sub Type are required.' });
@@ -698,12 +698,51 @@ exports.reportWrongUpdate = async (req, res) => {
         // 2. Add to External Call History (so it shows in Bank Panel Notes)
         const historyNote = {
             loggedById: new mongoose.Types.ObjectId(), // Generate a new ID if we don't have the FO's ID handy
-            loggedByName: `${fromName} (${fromRole})`,
+            loggedByName: `${reporterName} (${reporterRole})`,
             notes: `[Wrong Update Reported] Type: ${issueType}, Sub-Type: ${subType}. Note: ${notes}`,
             callStatus: 'Log',
             createdAt: new Date()
         };
         lead.externalCallHistory.push(historyNote);
+
+        // 3. create task for bank executives as well
+        const bankName = bankAssignment.bankName;
+        const bankExecs = await User.find({ role: 'BankExecutive', bank: bankName });
+        const Task = require('../models/taskModel');
+        if (bankExecs && bankExecs.length > 0) {
+            for (const exec of bankExecs) {
+                try {
+                    await Task.create({
+                        leadId: lead._id,
+                        subject: `Wrong Update: ${issueType} - ${subType}`,
+                        body: notes || '',
+                        assignedToId: exec._id,
+                        assignedToName: exec.fullName,
+                        createdById: createdById || null,
+                        createdByName: createdByName || reporterName,
+                        creatorRole: reporterRole
+                    });
+                } catch (e) {
+                    console.error('Failed to create wrong-update task for bank executive', exec._id, e);
+                }
+            }
+        } else {
+            console.warn(`No BankExecutive users found for bank "${bankName}"; creating fallback wrong-update task for reporter.`);
+            try {
+                await Task.create({
+                    leadId: lead._id,
+                    subject: `Wrong Update: ${issueType} - ${subType}`,
+                    body: notes || '',
+                    assignedToId: createdById || null,
+                    assignedToName: createdByName || reporterName,
+                    createdById: createdById || null,
+                    createdByName: createdByName || reporterName,
+                    creatorRole: reporterRole
+                });
+            } catch (e) {
+                console.error('Failed to create fallback wrong-update task for reporter', e);
+            }
+        }
 
         await lead.save();
 
@@ -737,6 +776,19 @@ exports.markNotificationAsRead = async (req, res) => {
 
         notification.isRead = true;
         await lead.save();
+
+        // also mark any related tasks (created by FO) as done so they disappear from "assigned by me"
+        try {
+            const Task = require('../models/taskModel');
+            const subj = `${notification.type}: ${notification.subType}`;
+            await Task.updateMany(
+                { leadId: lead._id, subject: subj, status: 'Open' },
+                { status: 'Done' }
+            );
+        } catch (tErr) {
+            console.error('Error updating tasks when notification read:', tErr);
+        }
+
         res.status(200).json({ success: true });
     } catch (error) {
         console.error('Error marking notification as read:', error);
@@ -749,10 +801,10 @@ exports.markNotificationAsRead = async (req, res) => {
  */
 exports.notifyBank = async (req, res) => {
     const { id } = req.params;
-    const { bankId, type, subType, notes } = req.body;
-    // Assuming fromName/fromRole are passed from frontend, or default to FO
-    const fromName = req.body.fromName || 'Field Officer';
-    const fromRole = req.body.fromRole || 'FO';
+    const { bankId, type, subType, notes, fromName, fromRole, createdById, createdByName } = req.body;
+    // Use provided names/roles or fallback
+    const reporterName = fromName || 'Field Officer';
+    const reporterRole = fromRole || 'FO';
 
     if (!bankId || !type || !subType) {
         return res.status(400).json({ message: 'Bank ID, Type, and Sub Type are required.' });
@@ -777,8 +829,8 @@ exports.notifyBank = async (req, res) => {
             type, // 'Contact ASAP' or 'Negotiate'
             subType,
             message: notes || '',
-            fromRole,
-            fromName,
+            fromRole: reporterRole,
+            fromName: reporterName,
             createdAt: new Date(),
             isRead: false
         };
@@ -787,12 +839,53 @@ exports.notifyBank = async (req, res) => {
         // 2. Add to External Call History (so it appears in Bank Panel notes & FO history)
         const historyNote = {
             loggedById: new mongoose.Types.ObjectId(), // Placeholder ID
-            loggedByName: `${fromName} (${fromRole})`,
+            loggedByName: `${reporterName} (${reporterRole})`,
             notes: `[Notification] ${type}: ${subType}. ${notes ? `Note: ${notes}` : ''}`,
             callStatus: 'Log',
             createdAt: new Date()
         };
         lead.externalCallHistory.push(historyNote);
+
+        // 3. Create corresponding task(s) for the bank executive(s)
+        //   find bank name via Bank model (optional) or use bankAssignment.bankName
+        const bankName = bankAssignment.bankName;
+        const bankExecs = await User.find({ role: 'BankExecutive', bank: bankName });
+        const Task = require('../models/taskModel');
+        if (bankExecs && bankExecs.length > 0) {
+            for (const exec of bankExecs) {
+                const taskPayload = {
+                    leadId: lead._id,
+                    subject: `${type}: ${subType}`,
+                    body: notes || '',
+                    assignedToId: exec._id,
+                    assignedToName: exec.fullName,
+                    createdById: createdById || null,
+                    createdByName: createdByName || reporterName,
+                    creatorRole: reporterRole
+                };
+                try {
+                    await Task.create(taskPayload);
+                } catch (e) {
+                    console.error('Failed to create task for bank executive', exec._id, e);
+                }
+            }
+        } else {
+            console.warn(`No BankExecutive users found for bank "${bankName}"; creating fallback task for reporter.`);
+            try {
+                await Task.create({
+                    leadId: lead._id,
+                    subject: `${type}: ${subType}`,
+                    body: notes || '',
+                    assignedToId: createdById || null,
+                    assignedToName: createdByName || reporterName,
+                    createdById: createdById || null,
+                    createdByName: createdByName || reporterName,
+                    creatorRole: reporterRole
+                });
+            } catch (e) {
+                console.error('Failed to create fallback task for reporter', e);
+            }
+        }
 
         await lead.save();
         res.status(200).json({ message: 'Notification sent to bank.', lead });

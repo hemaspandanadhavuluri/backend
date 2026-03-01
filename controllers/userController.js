@@ -330,7 +330,7 @@ exports.getAssignableUsers = async (req, res) => {
  */
 exports.getCounsellors = async (req, res) => {
     try {
-        const counsellors = await User.find({ role: 'Counsellor' }).select('_id fullName email consultancy');
+        const counsellors = await User.find({ role: 'Counsellor' }).select('_id fullName email phoneNumber consultancy');
         const counsellorsWithCount = await Promise.all(counsellors.map(async (counsellor) => {
             const leadCount = await Lead.countDocuments({ counsellorId: counsellor._id });
             return { ...counsellor.toObject(), leadCount };
@@ -347,7 +347,7 @@ exports.getCounsellors = async (req, res) => {
  * @route POST /api/users/counsellors
  */
 exports.createCounsellor = async (req, res) => {
-    const { consultancy, fullName, email } = req.body;
+    const { consultancy, fullName, email, phoneNumber } = req.body;
     if (!consultancy || !fullName || !email) {
         return res.status(400).json({ message: 'Consultancy, full name, and email are required.' });
     }
@@ -359,6 +359,7 @@ exports.createCounsellor = async (req, res) => {
         const counsellor = await User.create({
             fullName,
             email,
+            phoneNumber,
             password: 'defaultpassword',
             role: 'Counsellor',
             consultancy

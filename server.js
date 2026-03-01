@@ -11,6 +11,7 @@ const bankComparisonRoutes = require('./routes/bankComparisonRoutes');
 const emailService = require('./services/emailService');
 const taskRoutes = require('./routes/taskRoutes'); // Import task routes
 const emiRoutes = require('./routes/emiRoutes'); // Import EMI routes
+const testimonialRoutes = require('./routes/testimonialRoutes'); // Import testimonials routes
 
 dotenv.config();
 
@@ -33,14 +34,22 @@ mongoose.connection.once('open', () => {
     });
 });
 
+// allow cross‑origin access from our frontend.
+// in development we rely on CRA proxy, but in production the UI may live
+// on a different hostname/port – keep it open or pull from env if needed.
 const corsOptions = {
-    origin: ['https://justtapcapital.com', 'https://www.justtapcapital.com'],
+    origin: function(origin, callback) {
+        // allow requests with no origin (mobile apps, curl, etc.)
+        callback(null, true);
+    },
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
     optionsSuccessStatus: 204
 };
 
 app.use(cors(corsOptions));
+// alternatively simply `app.use(cors());` if you don't need credentials
+
 
 app.use(express.json());
 
@@ -54,6 +63,7 @@ app.use('/api/banks', bankRoutes);
 app.use('/api/bank-comparisons', bankComparisonRoutes);
 app.use('/api/tasks', taskRoutes); // Add task routes
 app.use('/api/emi', emiRoutes); // Add EMI routes
+app.use('/api/testimonials', testimonialRoutes); // Add testimonials routes
 
 //
 // Basic health check route

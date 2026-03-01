@@ -11,12 +11,15 @@ exports.createTask = async (req, res) => {
     }
 };
 
-// Get tasks, can be filtered by assignedToId or leadId
+// Get tasks, can be filtered by assignedToId, createdById or leadId
 exports.getTasks = async (req, res) => {
     try {
         const filter = {};
         if (req.query.assignedToId) {
             filter.assignedToId = req.query.assignedToId;
+        }
+        if (req.query.createdById) {
+            filter.createdById = req.query.createdById;
         }
         const tasks = await Task.find(filter).sort({ createdAt: -1 });
         res.status(200).json(tasks);
