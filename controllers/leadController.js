@@ -222,7 +222,7 @@ exports.updateLead = async (req, res) => {
  */
 exports.assignToBank = async (req, res) => {
     const { id } = req.params;
-    const { bankId, bankName, assignedRMName, assignedRMEmail, state } = req.body;
+    const { bankId, bankName, assignedRMName, assignedRMEmail, state, assignedByName, assignedById } = req.body;
 
     if (!bankId || !bankName || !assignedRMName || !assignedRMEmail || !state) {
         return res.status(400).json({ message: 'Bank ID, Bank Name, RM details, and State are required.' });
@@ -246,9 +246,9 @@ exports.assignToBank = async (req, res) => {
             assignedRMName: assignedRMName,
             assignedRMEmail: assignedRMEmail,
             state: state,
-            bankLeadStatus: 'In Progress', // Default to In Progress
-            contactible: true, // Default to contactible
-            bankApplicationStatus: '', // Empty initially
+            bankLeadStatus: 'In Progress',
+            contactible: true,
+            bankApplicationStatus: '',
             bankSubStatus: '',
             bankAppId: '',
             bankLastCallDate: null,
@@ -256,6 +256,28 @@ exports.assignToBank = async (req, res) => {
             bankReminders: [],
             crmId: ''
         });
+
+        // Add note to FO's callHistory
+        const foNote = {
+            loggedById: assignedById ? new mongoose.Types.ObjectId(assignedById) : new mongoose.Types.ObjectId(),
+            loggedByName: assignedByName || 'FO',
+            notes: `Lead assigned to ${bankName} - RM: ${assignedRMName} (${assignedRMEmail})`,
+            callStatus: 'Log',
+            createdAt: new Date()
+        };
+        lead.callHistory.push(foNote);
+
+        // Add note to bank's externalCallHistory
+        const bankNote = {
+            loggedById: assignedById ? new mongoose.Types.ObjectId(assignedById) : new mongoose.Types.ObjectId(),
+            loggedByName: assignedByName || 'FO',
+            notes: `Lead assigned to ${bankName} - RM: ${assignedRMName}`,
+            callStatus: 'Log',
+            createdAt: new Date(),
+            targetBank: bankName
+        };
+        lead.externalCallHistory.push(bankNote);
+
         const updatedLead = await lead.save();
         res.status(200).json({ lead: updatedLead, message: `Lead assigned to ${assignedRMName} at ${bankName}.` });
     } catch (error) {
@@ -347,6 +369,14 @@ exports.sendDocumentAccessOtp = async (req, res) => {
 
         // Store OTP (in-memory for this example)
         otpStore[id] = { otp, expiry };
+
+        // Log OTP to console for development/testing
+        console.log(`\n========================================`);
+        console.log(`OTP for Lead ID: ${id}`);
+        console.log(`Email: ${lead.email}`);
+        console.log(`OTP: ${otp}`);
+        console.log(`Valid until: ${new Date(expiry).toLocaleString()}`);
+        console.log(`========================================\n`);
 
         await emailService.sendGenericEmail(
             lead.email,
@@ -713,6 +743,16 @@ exports.reportWrongUpdate = async (req, res) => {
         };
         lead.externalCallHistory.push(historyNote);
 
+        // 2.5. ALSO add to FO's callHistory so it appears in FO panel
+        const foHistoryNote = {
+            loggedById: createdById ? new mongoose.Types.ObjectId(createdById) : new mongoose.Types.ObjectId(),
+            loggedByName: `${reporterName} (${reporterRole})`,
+            notes: `[Wrong Update Reported to ${bankName}] Type: ${issueType}, Sub-Type: ${subType}. Note: ${notes}`,
+            callStatus: 'Log',
+            createdAt: new Date()
+        };
+        lead.callHistory.push(foHistoryNote);
+
         // 3. create task for bank executives as well
         // CRITICAL FIX: Ensure targetBank is always set and matches bankAssignment.bankName
         const bankExecs = await User.find({ role: 'BankExecutive', bank: bankName });
@@ -863,6 +903,16 @@ exports.notifyBank = async (req, res) => {
             targetBank: bankName // CRITICAL: Add targetBank for proper filtering
         };
         lead.externalCallHistory.push(historyNote);
+
+        // 2.5. ALSO add to FO's callHistory so it appears in FO panel
+        const foHistoryNote = {
+            loggedById: createdById ? new mongoose.Types.ObjectId(createdById) : new mongoose.Types.ObjectId(),
+            loggedByName: `${reporterName} (${reporterRole})`,
+            notes: `[${type} to ${bankName}] ${subType}. ${notes ? `Note: ${notes}` : ''}`,
+            callStatus: 'Log',
+            createdAt: new Date()
+        };
+        lead.callHistory.push(foHistoryNote);
 
         // 3. Create corresponding task(s) for the bank executive(s)
         // CRITICAL FIX: Ensure targetBank is always set and matches bankAssignment.bankName
