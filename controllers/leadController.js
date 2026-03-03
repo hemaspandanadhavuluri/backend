@@ -348,7 +348,7 @@ exports.sendDocumentLink = async (req, res) => {
         res.status(200).json({ message: `Document upload link sent to ${lead.email}.` });
 
     } catch (error) {
-        console.error('Failed to send document link email:', error);
+        console.error('Failed to send document link email please check:', error);
         res.status(500).json({ message: 'Failed to send email.', error: error.message });
     }
 };
@@ -386,7 +386,7 @@ exports.sendDocumentAccessOtp = async (req, res) => {
 
         res.status(200).json({ message: 'OTP sent successfully.' });
     } catch (error) {
-        console.error('Error sending document access OTP:', error);
+        console.error('Error sending document access OTP please check:', error);
         res.status(500).json({ message: 'Failed to send OTP.' });
     }
 };
