@@ -37,6 +37,15 @@ const TaskSchema = new mongoose.Schema({
         type: String,
         default: 'Employee'
     },
+    bankName: {
+        type: String,
+        trim: true
+    },
+    targetBank: {
+        type: String,
+        trim: true,
+        default: null
+    },
     status: {
         type: String,
         enum: ['Open', 'Done'],

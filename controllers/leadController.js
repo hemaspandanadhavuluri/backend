@@ -684,6 +684,12 @@ exports.reportWrongUpdate = async (req, res) => {
             return res.status(404).json({ message: 'Bank assignment not found for this lead.' });
         }
 
+        // CRITICAL FIX: Validate targetBank matches bankAssignment.bankName
+        const bankName = bankAssignment.bankName;
+        if (!bankName) {
+            return res.status(400).json({ message: 'Bank name is missing from bank assignment. Cannot create task.' });
+        }
+
         // 1. Add to Notifications
         const notification = {
             type: 'Wrong Update',
@@ -696,17 +702,19 @@ exports.reportWrongUpdate = async (req, res) => {
         bankAssignment.notifications.push(notification);
 
         // 2. Add to External Call History (so it shows in Bank Panel Notes)
+        // CRITICAL FIX: Add targetBank field for proper bank-level isolation
         const historyNote = {
             loggedById: new mongoose.Types.ObjectId(), // Generate a new ID if we don't have the FO's ID handy
             loggedByName: `${reporterName} (${reporterRole})`,
             notes: `[Wrong Update Reported] Type: ${issueType}, Sub-Type: ${subType}. Note: ${notes}`,
             callStatus: 'Log',
-            createdAt: new Date()
+            createdAt: new Date(),
+            targetBank: bankName // CRITICAL: Add targetBank for proper filtering
         };
         lead.externalCallHistory.push(historyNote);
 
         // 3. create task for bank executives as well
-        const bankName = bankAssignment.bankName;
+        // CRITICAL FIX: Ensure targetBank is always set and matches bankAssignment.bankName
         const bankExecs = await User.find({ role: 'BankExecutive', bank: bankName });
         const Task = require('../models/taskModel');
         if (bankExecs && bankExecs.length > 0) {
@@ -720,7 +728,8 @@ exports.reportWrongUpdate = async (req, res) => {
                         assignedToName: exec.fullName,
                         createdById: createdById || null,
                         createdByName: createdByName || reporterName,
-                        creatorRole: reporterRole
+                        creatorRole: reporterRole,
+                        targetBank: bankName // CRITICAL: Must match bankAssignment.bankName exactly
                     });
                 } catch (e) {
                     console.error('Failed to create wrong-update task for bank executive', exec._id, e);
@@ -737,7 +746,8 @@ exports.reportWrongUpdate = async (req, res) => {
                     assignedToName: createdByName || reporterName,
                     createdById: createdById || null,
                     createdByName: createdByName || reporterName,
-                    creatorRole: reporterRole
+                    creatorRole: reporterRole,
+                    targetBank: bankName // CRITICAL: Must match bankAssignment.bankName exactly
                 });
             } catch (e) {
                 console.error('Failed to create fallback wrong-update task for reporter', e);
@@ -819,6 +829,12 @@ exports.notifyBank = async (req, res) => {
         const bankAssignment = lead.assignedBanks.find(b => b.bankId.toString() === bankId);
         if (!bankAssignment) return res.status(404).json({ message: 'Bank assignment not found.' });
 
+        // CRITICAL FIX: Validate targetBank matches bankAssignment.bankName
+        const bankName = bankAssignment.bankName;
+        if (!bankName) {
+            return res.status(400).json({ message: 'Bank name is missing from bank assignment. Cannot create task.' });
+        }
+
         // Ensure externalCallHistory exists
         if (!lead.externalCallHistory) {
             lead.externalCallHistory = [];
@@ -837,18 +853,19 @@ exports.notifyBank = async (req, res) => {
         bankAssignment.notifications.push(notification);
 
         // 2. Add to External Call History (so it appears in Bank Panel notes & FO history)
+        // CRITICAL FIX: Add targetBank field for proper bank-level isolation
         const historyNote = {
             loggedById: new mongoose.Types.ObjectId(), // Placeholder ID
             loggedByName: `${reporterName} (${reporterRole})`,
             notes: `[Notification] ${type}: ${subType}. ${notes ? `Note: ${notes}` : ''}`,
             callStatus: 'Log',
-            createdAt: new Date()
+            createdAt: new Date(),
+            targetBank: bankName // CRITICAL: Add targetBank for proper filtering
         };
         lead.externalCallHistory.push(historyNote);
 
         // 3. Create corresponding task(s) for the bank executive(s)
-        //   find bank name via Bank model (optional) or use bankAssignment.bankName
-        const bankName = bankAssignment.bankName;
+        // CRITICAL FIX: Ensure targetBank is always set and matches bankAssignment.bankName
         const bankExecs = await User.find({ role: 'BankExecutive', bank: bankName });
         const Task = require('../models/taskModel');
         if (bankExecs && bankExecs.length > 0) {
@@ -861,7 +878,8 @@ exports.notifyBank = async (req, res) => {
                     assignedToName: exec.fullName,
                     createdById: createdById || null,
                     createdByName: createdByName || reporterName,
-                    creatorRole: reporterRole
+                    creatorRole: reporterRole,
+                    targetBank: bankName // CRITICAL: Must match bankAssignment.bankName exactly
                 };
                 try {
                     await Task.create(taskPayload);
@@ -880,7 +898,8 @@ exports.notifyBank = async (req, res) => {
                     assignedToName: createdByName || reporterName,
                     createdById: createdById || null,
                     createdByName: createdByName || reporterName,
-                    creatorRole: reporterRole
+                    creatorRole: reporterRole,
+                    targetBank: bankName // CRITICAL: Must match bankAssignment.bankName exactly
                 });
             } catch (e) {
                 console.error('Failed to create fallback task for reporter', e);
