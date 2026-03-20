@@ -159,6 +159,23 @@ exports.updateLead = async (req, res) => {
         } catch (e) { /* If find fails, let the update proceed and likely fail validation, which is ok */ }
     }
 
+    // --- NEW: Handle sanctionedDate when bankLeadStatus or bankApplicationStatus changes to Sanctioned ---
+    if (updateData.assignedBanks && Array.isArray(updateData.assignedBanks)) {
+        const existingLead = await Lead.findOne(query).select('assignedBanks').lean();
+        if (existingLead) {
+            updateData.assignedBanks.forEach((bank, index) => {
+                const existingBank = existingLead.assignedBanks[index];
+                // Check if status is changing to Sanctioned (either bankLeadStatus or bankApplicationStatus)
+                const isNowSanctioned = bank.bankLeadStatus === 'Sanctioned' || bank.bankApplicationStatus === 'Sanctioned';
+                const wasNotSanctioned = existingBank?.bankLeadStatus !== 'Sanctioned' && existingBank?.bankApplicationStatus !== 'Sanctioned';
+                
+                if (isNowSanctioned && wasNotSanctioned && !bank.sanctionedDate) {
+                    bank.sanctionedDate = new Date();
+                }
+            });
+        }
+    }
+
     // --- FIX: Handle new call notes ---
     // If a new note is part of the payload (sent as `newNote` from frontend), add it to the call history array.
     if (updateData.newNote && updateData.newNote.notes) {
@@ -358,19 +375,19 @@ exports.sendDocumentLink = async (req, res) => {
  */
 exports.sendDocumentAccessOtp = async (req, res) => {
     const { id } = req.params;
+    console.log('=== OTP REQUEST RECEIVED ===');
+    console.log('Lead ID:', id);
     try {
         const lead = await Lead.findById(id).select('email');
         if (!lead || !lead.email) {
+            console.log('Lead not found or no email');
             return res.status(404).json({ message: 'Lead not found or has no email.' });
         }
 
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
-        const expiry = Date.now() + 10 * 60 * 1000; // 10 minutes
-
-        // Store OTP (in-memory for this example)
+        const expiry = Date.now() + 10 * 60 * 1000;
         otpStore[id] = { otp, expiry };
 
-        // Log OTP to console for development/testing
         console.log(`\n========================================`);
         console.log(`OTP for Lead ID: ${id}`);
         console.log(`Email: ${lead.email}`);
@@ -384,7 +401,7 @@ exports.sendDocumentAccessOtp = async (req, res) => {
             `<p>Your OTP for accessing lead documents is: <strong>${otp}</strong>. It is valid for 10 minutes.</p>`
         );
 
-        res.status(200).json({ message: 'OTP sent successfully.' });
+        res.status(200).json({ message: 'OTP sent successfully.', otp });
     } catch (error) {
         console.error('Error sending document access OTP please check:', error);
         res.status(500).json({ message: 'Failed to send OTP.' });
@@ -692,7 +709,7 @@ exports.reportWrongUpdate = async (req, res) => {
     const { bankId, issueType, subType, notes, fromName, fromRole, createdById, createdByName } = req.body;
 
     // Use provided names/roles or fallback
-    const reporterName = fromName || 'Field Officer';
+    const reporterName = fromName || 'Finance Officer';
     const reporterRole = fromRole || 'FO';
 
     if (!bankId || !issueType || !subType) {
@@ -853,7 +870,7 @@ exports.notifyBank = async (req, res) => {
     const { id } = req.params;
     const { bankId, type, subType, notes, fromName, fromRole, createdById, createdByName } = req.body;
     // Use provided names/roles or fallback
-    const reporterName = fromName || 'Field Officer';
+    const reporterName = fromName || 'Finance Officer';
     const reporterRole = fromRole || 'FO';
 
     if (!bankId || !type || !subType) {

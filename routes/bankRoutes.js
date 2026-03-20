@@ -29,4 +29,9 @@ router.put('/:id/rm/:rmId', bankController.updateRelationshipManager);
 // NEW: Delete a Relationship Manager
 router.delete('/:id/rm/:rmId', bankController.deleteRelationshipManager);
 
+// Email template specific routes
+router.get('/private-lenders', bankController.getPrivateLendersWithExecutives);
+router.get('/public-banks', bankController.getPublicBanksWithExecutives);
+router.get('/all-connected', bankController.getAllConnectedBanksWithExecutives);
+
 module.exports = router;

@@ -116,6 +116,12 @@ const BankAssignmentSchema = new mongoose.Schema({
     bankApplicationStatus: { type: String, default: '' }, // Application status text
     bankSubStatus: { type: String, default: '' }, // NEW: Sub-status for detailed tracking
     bankAppId: { type: String, default: '' }, // NEW: Application ID entered by Bank Executive
+    bankDsaCode: { type: String, default: '' }, // NEW: DSA code entered by Bank Executive when status is Logged In
+    sanctionedDate: { type: Date }, // NEW: Date when status was set to Sanctioned
+    // NEW: Sanction fields
+    sanctionAcc: { type: String, default: '' }, // Sanction Account number
+    sanctionRoi: { type: String, default: '' }, // Sanction Rate of Interest
+    pfPaid: { type: String, default: '' }, // PF Paid - Yes or No
     bankLastCallDate: { type: Date }, // Last call date
     bankNextCallDate: { type: Date }, // Next call date
     crmId: { type: String, default: '' }, // CRM ID

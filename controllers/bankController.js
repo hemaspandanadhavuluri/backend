@@ -65,20 +65,23 @@ exports.searchBanksByPincode = async (req, res) => {
 };
 
 /**
- * 4. GET /api/banks/connected/:type - Fetch connected banks by type (public or private) with RMs
+ * 4. GET /api/banks/connected/:type - Fetch connected banks by type (public or private or both) with RMs
  */
 exports.getConnectedBanksByType = async (req, res) => {
-    const { type } = req.params; // 'public' or 'private'
+    const { type } = req.params; // 'public', 'private', or 'both'
 
-    if (!['public', 'private'].includes(type)) {
-        return res.status(400).json({ message: 'Invalid type. Must be "public" or "private".' });
+    if (!['public', 'private', 'both'].includes(type)) {
+        return res.status(400).json({ message: 'Invalid type. Must be "public", "private", or "both".' });
     }
 
     try {
-        // Filter banks based on type field in database
-        const banks = await Bank.find({ type: type }).sort({ name: 1 });
+        let banks;
+        if (type === 'both') {
+            banks = await Bank.find({ type: { $in: ['public', 'private'] } }).sort({ name: 1 });
+        } else {
+            banks = await Bank.find({ type: type }).sort({ name: 1 });
+        }
 
-        // Return banks with their RMs
         const result = banks.map(bank => ({
             _id: bank._id,
             name: bank.name,
@@ -399,5 +402,113 @@ exports.deleteRelationshipManager = async (req, res) => {
         res.status(200).json({ message: 'Relationship Manager deleted successfully.', bank });
     } catch (error) {
         res.status(500).json({ message: 'Failed to delete Relationship Manager.', error: error.message });
+    }
+};
+
+/**
+ * 11. GET /api/banks/private-lenders - Get all private banks and NBFCs with executives
+ */
+exports.getPrivateLendersWithExecutives = async (req, res) => {
+    try {
+        const privateLenders = await Bank.find({ 
+            type: { $in: ['private', 'nbfc'] },
+            'relationshipManagers.0': { $exists: true }
+        }).sort({ name: 1 });
+
+        const result = privateLenders.map(bank => ({
+            _id: bank._id,
+            name: bank.name,
+            type: bank.type,
+            executives: bank.relationshipManagers.map(rm => ({
+                _id: rm._id,
+                name: rm.name,
+                email: rm.email,
+                mobile: rm.phoneNumber,
+                region: rm.region,
+                branch: rm.branch,
+                empId: rm.empId
+            }))
+        }));
+
+        res.status(200).json(result);
+    } catch (error) {
+        res.status(500).json({ message: 'Failed to fetch private lenders.', error: error.message });
+    }
+};
+
+/**
+ * 12. GET /api/banks/public-banks - Get all public banks with executives
+ */
+exports.getPublicBanksWithExecutives = async (req, res) => {
+    try {
+        const publicBanks = await Bank.find({ 
+            type: 'public',
+            'relationshipManagers.0': { $exists: true }
+        }).sort({ name: 1 });
+
+        const result = publicBanks.map(bank => ({
+            _id: bank._id,
+            name: bank.name,
+            type: bank.type,
+            executives: bank.relationshipManagers.map(rm => ({
+                _id: rm._id,
+                name: rm.name,
+                email: rm.email,
+                mobile: rm.phoneNumber,
+                region: rm.region,
+                branch: rm.branch,
+                empId: rm.empId
+            }))
+        }));
+
+        res.status(200).json(result);
+    } catch (error) {
+        res.status(500).json({ message: 'Failed to fetch public banks.', error: error.message });
+    }
+};
+
+/**
+ * 13. GET /api/banks/all-connected - Get all connected banks with executives
+ */
+exports.getAllConnectedBanksWithExecutives = async (req, res) => {
+    try {
+        const allBanks = await Bank.find({ 
+            'relationshipManagers.0': { $exists: true }
+        }).sort({ type: 1, name: 1 });
+
+        const result = {
+            public: [],
+            private: [],
+            nbfc: []
+        };
+
+        allBanks.forEach(bank => {
+            const bankData = {
+                _id: bank._id,
+                name: bank.name,
+                type: bank.type,
+                executives: bank.relationshipManagers.map(rm => ({
+                    _id: rm._id,
+                    name: rm.name,
+                    email: rm.email,
+                    mobile: rm.phoneNumber,
+                    region: rm.region,
+                    branch: rm.branch,
+                    empId: rm.empId
+                }))
+            };
+
+            if (bank.type === 'public') {
+                result.public.push(bankData);
+            } else if (bank.type === 'private') {
+                result.private.push(bankData);
+            } else if (bank.type === 'nbfc') {
+                result.nbfc.push(bankData);
+            }
+        });
+
+        res.status(200).json(result);
+    } catch (error) {
+        res.status(500).json({ message: 'Failed to fetch all connected banks.', error: error.message });
     }
 };
