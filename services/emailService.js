@@ -11,17 +11,62 @@ async function init() {
     }
 
     transporter = nodemailer.createTransport({
-        service: 'gmail', 
+        host: 'smtp.hostinger.com',
+        port: 465,
+        secure: true, // Use SSL
         auth: {
              user: process.env.EMAIL_USER,
              pass: process.env.EMAIL_PASS
         },
+        debug: false,
+        logger: false,
+        tls: {
+            rejectUnauthorized: false
+        }
     });
     
     // Verify connection configuration (optional, but good practice)
     await transporter.verify();
     
     console.log('✅ Email service initialized and ready to send real emails.');
+}
+
+/**
+ * Sends a professional OTP email for user authentication.
+ */
+async function sendOTPEmail(email, otp) {
+    if (!email) {
+        console.error('❌ Error: No recipient email provided to sendOTPEmail');
+        throw new Error('Recipient email is required');
+    }
+
+    if (!transporter) {
+        throw new Error('Email service not initialized.');
+    }
+
+    const mailOptions = {
+        from: `"Justap Capital" <${process.env.EMAIL_USER}>`,
+        to: email,
+        subject: 'Your Verification Code - Justap Capital',
+        html: `
+            <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #eee; padding: 25px; border-radius: 10px;">
+                <h2 style="color: #007bff; text-align: center; margin-bottom: 20px;">Verification Code</h2>
+                <p style="font-size: 16px; color: #555;">Dear User,</p>
+                <p style="font-size: 16px; color: #555;">To complete your login or registration process at Justap Capital, please use the following one-time password (OTP):</p>
+                <div style="text-align: center; margin: 35px 0;">
+                    <span style="font-size: 38px; font-weight: bold; letter-spacing: 8px; color: #222; background-color: #f9f9f9; padding: 15px 30px; border-radius: 6px; border: 1px dashed #007bff; display: inline-block;">${otp}</span>
+                </div>
+                <p style="font-size: 14px; color: #777;">This code is valid for <strong>10 minutes</strong>. For your security, please do not share this code with anyone.</p>
+                <p style="font-size: 14px; color: #777;">If you did not request this code, you can safely ignore this email.</p>
+                <hr style="border: 0; border-top: 1px solid #eee; margin: 25px 0;" />
+                <p style="font-size: 14px; color: #555; text-align: center; margin-bottom: 0;">Best regards,<br/><strong>The Justap Team</strong></p>
+            </div>
+        `,
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log('OTP email sent to %s: %s', email, info.messageId);
+    return info;
 }
 
 /**
@@ -36,7 +81,7 @@ async function sendDocumentUploadEmail(studentEmail, studentName, leadId) {
 
     const mailOptions = {
         // Use the authenticated user's email as the 'from' address for consistency
-        from: `"${"Justap Educational Loans"}" <${process.env.EMAIL_USER}>`, 
+        from: `"Justap Educational Loans" <${process.env.EMAIL_USER}>`, 
         to: studentEmail,
         subject: `Action Required: Upload Your Documents for Loan Application`,
         html: `
@@ -63,7 +108,7 @@ async function sendGenericEmail(to, subject, htmlBody) {
     }
 
     const mailOptions = {
-        from: `"${"Justap Educational Loans"}" <${process.env.EMAIL_USER}>`,
+        from: `"Justap Educational Loans" <${process.env.EMAIL_USER}>`,
         to: to,
         subject: subject,
         html: htmlBody,
@@ -132,4 +177,4 @@ async function sendBankEmail(templateData) {
     return info;
 }
 
-module.exports = { init, sendDocumentUploadEmail, sendGenericEmail, sendBankEmail };
+module.exports = { init, sendOTPEmail, sendDocumentUploadEmail, sendGenericEmail, sendBankEmail };

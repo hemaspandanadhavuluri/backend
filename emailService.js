@@ -5,18 +5,25 @@ const nodemailer = require('nodemailer');
  * It reads credentials from environment variables for security.
  */
 const transporter = nodemailer.createTransport({
-    service: 'gmail', // Or your preferred email service
+    host: 'smtp.hostinger.com',
+    port: 465,
+    secure: true, // Use SSL
     auth: {
         user: process.env.EMAIL_USER, // Your email address from .env file
         pass: process.env.EMAIL_PASS, // Your email password or app-specific password from .env file
     },
+    debug: false,
+    logger: false,
+    tls: {
+        rejectUnauthorized: false
+    }
 });
 
 async function sendDocumentUploadEmail(studentEmail, studentName, leadId) {
     const uploadLink = `https://justtapcapital.com/leads/${leadId}/documents`;
 
     const mailOptions = {
-        from: '"Justap Educational Loans" <support@justap.com>',
+        from: `"Justap Educational Loans" <${process.env.EMAIL_USER}>`,
         to: studentEmail,
         subject: `Action Required: Upload Your Documents for Loan Application`,
         html: `
@@ -34,7 +41,7 @@ async function sendDocumentUploadEmail(studentEmail, studentName, leadId) {
 
 async function sendGenericEmail(to, subject, htmlBody) {
     const mailOptions = {
-        from: '"Justap Educational Loans" <support@justap.com>',
+        from: `"Justap Educational Loans" <${process.env.EMAIL_USER}>`,
         to: to,
         subject: subject,
         html: htmlBody,

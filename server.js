@@ -17,39 +17,46 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://13.48.131.69:27017/leadmanagementdb';
+const MONGODB_URI = process.env.MONGODB_URI;
+
+if (!MONGODB_URI) {
+    console.warn('Warning: MONGODB_URI not found in .env. Using fallback connection string.');
+}
+const connectionString = MONGODB_URI || 'mongodb://13.48.131.69:27017/leadmanagementdb';
 
 // Database Connection
-mongoose.connect(MONGODB_URI)
-    .then(() => console.log('MongoDB Connected successfully!'))
+mongoose.connect(connectionString)
+    .then(() => {
+        console.log('MongoDB Connected successfully!');
+        // Initialize the email service after DB connection is established
+        emailService.init().catch(err => {
+            console.error('Email Service Initialization Failed:', err.message);
+        });
+    })
     .catch(err => {
         console.error('MongoDB connection error:', err);
         process.exit(1);
     });
 
-// Initialize the email service after DB connection
-mongoose.connection.once('open', () => {
-    emailService.init().catch(err => {
-        console.error('Failed to initialize email service:', err);
-    });
-});
+// CORS Configuration
+const allowedOrigins = [
+    'https://justtapcapital.com',
+    'http://localhost:3000',
+    'http://localhost:8080'
+];
 
-// allow cross‑origin access from our frontend.
-// in development we rely on CRA proxy, but in production the UI may live
-// on a different hostname/port – keep it open or pull from env if needed.
-const corsOptions = {
-    origin: function(origin, callback) {
-        // allow requests with no origin (mobile apps, curl, etc.)
-        callback(null, true);
+app.use(cors({
+    origin: (origin, callback) => {
+        // Allow requests with no origin (like mobile apps or curl)
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
     },
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-    credentials: true,
-    optionsSuccessStatus: 204
-};
-
-app.use(cors(corsOptions));
-// alternatively simply `app.use(cors());` if you don't need credentials
-
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD'],
+    credentials: true
+}));
 
 app.use(express.json());
 

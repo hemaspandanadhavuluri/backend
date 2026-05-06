@@ -14,8 +14,8 @@ const emailService = require('../services/emailService'); // Import the central 
 const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
-        user: 'justtapnagendra@gmail.com',
-        pass: 'lfxs gaqv ldyd rwnj'
+        user: 'justtapcapital@justtapcapital.com',
+        pass: 'p9st-iveh-lpvk-mk4m'
     }
 });
 /**

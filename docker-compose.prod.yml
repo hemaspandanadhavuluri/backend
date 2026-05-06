@@ -8,8 +8,8 @@ services:
     environment:
       - MONGODB_URI=mongodb+srv://justtapEDLoans:justtapEDLoans@justap-edloans.x48q4c6.mongodb.net/?retryWrites=true&w=majority&appName=justap-edloans
       - PORT=5000
-      - EMAIL_USER=justtapnagendra@gmail.com
-      - EMAIL_PASS=lfxs gaqv ldyd rwnj
+      - EMAIL_USER=justtapcapital@justtapcapital.com
+      - EMAIL_PASS=p9st-iveh-lpvk-mk4m
     networks:
       - app-network
 
