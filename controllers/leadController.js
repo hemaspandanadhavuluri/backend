@@ -205,7 +205,9 @@ exports.updateLead = async (req, res) => {
             loggedById: new mongoose.Types.ObjectId(),
             loggedByName: updateData.externalCallNote.loggedByName || 'Bank Executive',
             notes: updateData.externalCallNote.notes,
-            callStatus: updateData.externalCallNote.callStatus || 'Log' // Allow status override
+            callStatus: updateData.externalCallNote.callStatus || 'Log',
+            targetBank: updateData.externalCallNote.targetBank,
+            createdAt: new Date()
         };
         // Use $push to add to the externalCallHistory array
         if (!atomicOps.$push) atomicOps.$push = {};
@@ -826,7 +828,7 @@ exports.reportWrongUpdate = async (req, res) => {
  */
 exports.markNotificationAsRead = async (req, res) => {
     const { id, notificationId } = req.params;
-    const { bankName } = req.body; // We need to know which bank's notification to mark
+    const { bankName, fromName } = req.body;
 
     try {
         const lead = await Lead.findById(id);
@@ -842,6 +844,26 @@ exports.markNotificationAsRead = async (req, res) => {
         }
 
         notification.isRead = true;
+
+        // Add note to External Call History (visible in Bank Executive Panel)
+        lead.externalCallHistory.push({
+            loggedById: new mongoose.Types.ObjectId(),
+            loggedByName: fromName || `${bankName} Executive`,
+            notes: `[Issue Resolved] ${notification.type}: ${notification.subType} marked as done.`,
+            callStatus: 'Log',
+            createdAt: new Date(),
+            targetBank: bankName
+        });
+
+        // Add note to FO Call History (visible in FO Panel)
+        lead.callHistory.push({
+            loggedById: new mongoose.Types.ObjectId(),
+            loggedByName: fromName || `${bankName} Executive`,
+            notes: `[Resolution] ${bankName} has resolved the reported issue: ${notification.type} (${notification.subType}).`,
+            callStatus: 'Log',
+            createdAt: new Date()
+        });
+
         await lead.save();
 
         // also mark any related tasks (created by FO) as done so they disappear from "assigned by me"
@@ -856,7 +878,7 @@ exports.markNotificationAsRead = async (req, res) => {
             console.error('Error updating tasks when notification read:', tErr);
         }
 
-        res.status(200).json({ success: true });
+        res.status(200).json({ success: true, lead });
     } catch (error) {
         console.error('Error marking notification as read:', error);
         res.status(500).json({ message: 'Failed to mark notification as read.', error: error.message });
