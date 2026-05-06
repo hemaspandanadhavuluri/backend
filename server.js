@@ -60,6 +60,14 @@ app.use(cors({
 
 app.use(express.json());
 
+// Diagnostic middleware for OTP requests
+app.use((req, res, next) => {
+    if (req.path === '/api/users/send-otp' && req.method === 'POST') {
+        console.log('[DEBUG] OTP Request Body:', JSON.stringify(req.body, null, 2));
+    }
+    next();
+});
+
 // Serve static files from uploads directory
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
@@ -72,10 +80,15 @@ app.use('/api/tasks', taskRoutes); // Add task routes
 app.use('/api/emi', emiRoutes); // Add EMI routes
 app.use('/api/testimonials', testimonialRoutes); // Add testimonials routes
 
-//
 // Basic health check route
 app.get('/', (req, res) => {
     res.send('Lead Management API is running...');
+});
+
+// Global Error Handler - catches any error thrown in routes
+app.use((err, req, res, next) => {
+    console.error('❌ Global Error Handler:', err);
+    res.status(err.status || 500).json({ error: 'Internal Server Error', details: err.message });
 });
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

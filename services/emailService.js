@@ -18,8 +18,8 @@ async function init() {
              user: process.env.EMAIL_USER,
              pass: process.env.EMAIL_PASS
         },
-        debug: false,
-        logger: false,
+        debug: true,
+        logger: true,
         tls: {
             rejectUnauthorized: false
         }
@@ -64,9 +64,14 @@ async function sendOTPEmail(email, otp) {
         `,
     };
 
-    const info = await transporter.sendMail(mailOptions);
-    console.log('OTP email sent to %s: %s', email, info.messageId);
-    return info;
+    try {
+        const info = await transporter.sendMail(mailOptions);
+        console.log('OTP email sent to %s: %s', email, info.messageId);
+        return info;
+    } catch (error) {
+        console.error('❌ SMTP Error while sending OTP:', error);
+        throw error;
+    }
 }
 
 /**
@@ -93,10 +98,14 @@ async function sendDocumentUploadEmail(studentEmail, studentName, leadId) {
         `,
     };
 
-    const info = await transporter.sendMail(mailOptions);
-    console.log('Message sent: %s', info.messageId);
-    // REMOVE: nodemailer.getTestMessageUrl(info) as it's not relevant for real emails
-    // The email is now sent to the real recipient's inbox.
+    try {
+        const info = await transporter.sendMail(mailOptions);
+        console.log('Document upload email sent: %s', info.messageId);
+        return info;
+    } catch (error) {
+        console.error('❌ SMTP Error while sending document upload email:', error);
+        throw error;
+    }
 }
 
 /**
@@ -114,9 +123,14 @@ async function sendGenericEmail(to, subject, htmlBody) {
         html: htmlBody,
     };
 
-    const info = await transporter.sendMail(mailOptions);
-    console.log('Message sent: %s', info.messageId);
-    // The email is now sent to the real recipient's inbox.
+    try {
+        const info = await transporter.sendMail(mailOptions);
+        console.log('Generic email sent: %s', info.messageId);
+        return info;
+    } catch (error) {
+        console.error('❌ SMTP Error while sending generic email:', error);
+        throw error;
+    }
 }
 
 /**
@@ -172,9 +186,14 @@ async function sendBankEmail(templateData) {
         replyTo: executiveEmail
     };
 
-    const info = await transporter.sendMail(mailOptions);
-    console.log('Bank email sent: %s', info.messageId);
-    return info;
+    try {
+        const info = await transporter.sendMail(mailOptions);
+        console.log('Bank email sent: %s', info.messageId);
+        return info;
+    } catch (error) {
+        console.error('❌ SMTP Error while sending bank email:', error);
+        throw error;
+    }
 }
 
 module.exports = { init, sendOTPEmail, sendDocumentUploadEmail, sendGenericEmail, sendBankEmail };

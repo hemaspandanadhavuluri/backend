@@ -19,6 +19,37 @@ const transporter = nodemailer.createTransport({
     }
 });
 
+async function sendOTPEmail(email, otp) {
+    if (!email) {
+        console.error('❌ Error: No recipient email provided to sendOTPEmail');
+        throw new Error('Recipient email is required');
+    }
+
+    const mailOptions = {
+        from: `"Justap Capital" <${process.env.EMAIL_USER}>`,
+        to: email,
+        subject: 'Your Verification Code - Justap Capital',
+        html: `
+            <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #eee; padding: 25px; border-radius: 10px;">
+                <h2 style="color: #007bff; text-align: center; margin-bottom: 20px;">Verification Code</h2>
+                <p style="font-size: 16px; color: #555;">Dear User,</p>
+                <p style="font-size: 16px; color: #555;">To complete your login or registration process at Justap Capital, please use the following one-time password (OTP):</p>
+                <div style="text-align: center; margin: 35px 0;">
+                    <span style="font-size: 38px; font-weight: bold; letter-spacing: 8px; color: #222; background-color: #f9f9f9; padding: 15px 30px; border-radius: 6px; border: 1px dashed #007bff; display: inline-block;">${otp}</span>
+                </div>
+                <p style="font-size: 14px; color: #777;">This code is valid for <strong>10 minutes</strong>. For your security, please do not share this code with anyone.</p>
+                <p style="font-size: 14px; color: #777;">If you did not request this code, you can safely ignore this email.</p>
+                <hr style="border: 0; border-top: 1px solid #eee; margin: 25px 0;" />
+                <p style="font-size: 14px; color: #555; text-align: center; margin-bottom: 0;">Best regards,<br/><strong>The Justap Team</strong></p>
+            </div>
+        `,
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`OTP email sent to ${email}: ${info.messageId}`);
+    return info;
+}
+
 async function sendDocumentUploadEmail(studentEmail, studentName, leadId) {
     const uploadLink = `https://justtapcapital.com/leads/${leadId}/documents`;
 
@@ -51,4 +82,4 @@ async function sendGenericEmail(to, subject, htmlBody) {
     console.log(`Generic email sent to ${to}: ${info.messageId}`);
 }
 
-module.exports = { sendDocumentUploadEmail, sendGenericEmail };
+module.exports = { sendOTPEmail, sendDocumentUploadEmail, sendGenericEmail };

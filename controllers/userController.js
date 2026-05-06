@@ -6,18 +6,9 @@ const Lead = require('../models/leadModel'); // Import the Lead model
 // const bcrypt = require('bcryptjs'); // Needed for real-world password hashing
 const mongoose = require('mongoose');
 const multer = require('multer');
-const nodemailer = require('nodemailer');
 const upload = require('../middlewares/uploadMiddleware'); // Import multer middleware
 const path = require('path');
 const emailService = require('../services/emailService'); // Import the central email service
-// Configure nodemailer transporter
-const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-        user: 'justtapcapital@justtapcapital.com',
-        pass: 'p9st-iveh-lpvk-mk4m'
-    }
-});
 /**
  * Creates a new user/employee (HR, FO, Head, etc.).
  * @route POST /api/users/register
@@ -179,28 +170,7 @@ exports.sendOTP = async (req, res) => {
 
         // Send OTP via email if identifier is an email
         if (identifier.includes('@')) {
-            const mailOptions = {
-                from: process.env.EMAIL_USER,
-                to: identifier,
-                subject: 'Your OTP for Employee Login',
-                html: `
-                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
-                    <h2 style="color: #1976d2; text-align: center;">Employee Portal Login</h2>
-                    <p>Hello ${user.fullName},</p>
-                    <p>Your One-Time Password (OTP) for login is:</p>
-                    <div style="text-align: center; margin: 30px 0;">
-                        <span style="font-size: 32px; font-weight: bold; color: #1976d2; background: #f5f5f5; padding: 10px 20px; border-radius: 5px; letter-spacing: 5px;">${otp}</span>
-                    </div>
-                    <p>This OTP will expire in 5 minutes.</p>
-                    <p>If you didn't request this OTP, please ignore this email.</p>
-                    <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
-                    <p style="color: #666; font-size: 12px; text-align: center;">This is an automated message from the Employee Portal.</p>
-                </div>
-                `
-            };
-
-            await transporter.sendMail(mailOptions);
-            console.log(`✅ OTP email sent to ${identifier}: ${otp}`);
+            await emailService.sendOTPEmail(identifier, otp);
         } else {
             // For mobile numbers, you would integrate with SMS service like Twilio
             // For now, we'll just log it
@@ -264,9 +234,19 @@ exports.verifyOTP = async (req, res) => {
             employeeId: userDetails.employeeId
         };
 
+        // Determine the dashboard path based on the user's role
+        let redirectTo = '/'; // Default for FO, ZonalHead, RegionalHead handled by FoApp at root
+        const role = userDetails.role;
+        if (role === 'BankExecutive') redirectTo = '/bank-panel';
+        else if (role?.toLowerCase() === 'assigner') redirectTo = '/assigner';
+        else if (role === 'Counsellor') redirectTo = '/counsellor';
+        else if (role === 'HR') redirectTo = '/hr-panel';
+        else if (role === 'CEO') redirectTo = '/ceo-dashboard';
+
         res.status(200).json({
             message: 'Login successful.',
-            user: userForFrontend
+            user: userForFrontend,
+            redirectTo
         });
     } catch (error) {
         console.error('Error verifying OTP:', error);
